@@ -1,0 +1,50 @@
+import { DataTypes } from "sequelize";
+import sequelize from "../config/db.js";
+
+const DonationProject = sequelize.define(
+  "DonationProject",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    association_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: "associations", key: "id" },
+    },
+    title: {
+      type: DataTypes.STRING(200),
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    image_url: {
+      type: DataTypes.STRING(500),
+      allowNull: false,
+    },
+    goal_amount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+    },
+    current_amount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    max_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  },
+  {
+    tableName: "donation_projects",
+    timestamps: true,
+    underscored: true,
+  }
+);
+
+export default DonationProject;
