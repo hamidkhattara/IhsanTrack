@@ -40,6 +40,39 @@ export const getAllEvents = async (req, res) => {
   }
 };
 
+export const getMyEvents = async (req, res) => {
+  try {
+    const registrations = await VolunteersRegistry.findAll({
+      where: { user_id: req.user.id },
+      include: [
+        {
+          model: Event,
+          as: "event",
+          include: [{ model: Association, as: "association", attributes: ["id", "name", "wilaya"] }],
+        },
+      ],
+      order: [["registered_at", "DESC"]],
+    });
+
+    return res.json(
+      registrations
+        .filter((registration) => registration.event)
+        .map((registration) => ({
+          id: registration.event.id,
+          title: registration.event.title,
+          location: registration.event.location_wilaya,
+          date: registration.event.start_date,
+          status: registration.status === "accepted" ? "حضرت" : registration.status === "rejected" ? "غاب" : "مسجّل",
+          registered_at: registration.registered_at,
+          image_url: registration.event.image_url,
+          association: registration.event.association,
+        }))
+    );
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 export const getEventById = async (req, res) => {
   try {
     const event = await Event.findByPk(req.params.id, {

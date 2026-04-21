@@ -2,10 +2,16 @@ import { Router } from "express";
 import {
 	register,
 	registerAssociation,
+	checkEmail,
+	verifyRegistrationCode,
+	resendRegistrationCode,
 	verifyEmail,
 	login,
 	logout,
 	me,
+	updateMyProfile,
+	forgotPassword,
+	resetPassword,
 } from "../controllers/auth.controller.js";
 import { authenticate } from "../middlewares/auth.js";
 import { validate } from "../middlewares/validate.js";
@@ -13,6 +19,11 @@ import {
 	registerSchema,
 	registerAssociationSchema,
 	loginSchema,
+	checkEmailSchema,
+	verifyRegistrationCodeSchema,
+	resendRegistrationCodeSchema,
+	forgotPasswordSchema,
+	resetPasswordSchema,
 } from "../validators/auth.validator.js";
 
 const router = Router();
@@ -62,6 +73,10 @@ const router = Router();
  *         description: Email already registered
  */
 router.post("/register", validate(registerSchema), register);
+
+router.post("/check-email", validate(checkEmailSchema), checkEmail);
+router.post("/verify-registration-code", validate(verifyRegistrationCodeSchema), verifyRegistrationCode);
+router.post("/resend-registration-code", validate(resendRegistrationCodeSchema), resendRegistrationCode);
 
 /**
  * @swagger
@@ -180,6 +195,10 @@ router.get("/verify-email", verifyEmail);
  */
 router.post("/login", validate(loginSchema), login);
 
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
+
 /**
  * @swagger
  * /api/auth/logout:
@@ -207,5 +226,6 @@ router.post("/logout", logout);
  *         description: You must be logged in to perform this action
  */
 router.get("/me", authenticate, me);
+router.patch("/me/profile", authenticate, updateMyProfile);
 
 export default router;

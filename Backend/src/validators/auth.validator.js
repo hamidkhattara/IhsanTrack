@@ -29,3 +29,25 @@ export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+export const checkEmailSchema = z.object({
+  email: z.string().email(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(6).max(100),
+});
+
+export const verifyRegistrationCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "Code must be exactly 6 digits"),
+});
+
+export const resendRegistrationCodeSchema = z.object({
+  email: z.string().email(),
+});

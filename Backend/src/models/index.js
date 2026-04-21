@@ -26,6 +26,10 @@ Donation.belongsTo(DonationProject, { foreignKey: "donation_project_id", as: "do
 Association.hasMany(Event, { foreignKey: "association_id", as: "events" });
 Event.belongsTo(Association, { foreignKey: "association_id", as: "association" });
 
+// ── VolunteersRegistry direct links ──
+VolunteersRegistry.belongsTo(User, { foreignKey: "user_id", as: "user" });
+VolunteersRegistry.belongsTo(Event, { foreignKey: "event_id", as: "event" });
+
 // ── User <-> Event (Many-to-Many via VolunteersRegistry) ──
 User.belongsToMany(Event, {
   through: VolunteersRegistry,

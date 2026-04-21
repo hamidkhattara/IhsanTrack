@@ -21,37 +21,166 @@ const buildVerificationUrl = (token) => {
   return `${baseUrl.replace(/\/$/, "")}/verify-email?token=${token}`;
 };
 
+const buildResetPasswordUrl = (token) => {
+  const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173";
+  return `${baseUrl.replace(/\/$/, "")}/reset-password?token=${token}`;
+};
+
+const sanitizeUser = (user) => ({
+  id: user.id,
+  full_name: user.full_name,
+  email: user.email,
+  role: user.role,
+  avatar_url: user.avatar_url,
+  phone: user.phone,
+  is_email_verified: user.is_email_verified,
+  createdAt: user.createdAt,
+});
+
+const buildVerificationCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+const setUserEmailCode = async (user) => {
+  const code = buildVerificationCode();
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+  await user.update({
+    email_verification_code: code,
+    email_verification_expires: expires,
+    is_email_verified: false,
+  });
+
+  return code;
+};
+
+const sendRegistrationCodeEmail = async (email, code) => {
+  await sendEmail({
+    to: email,
+    subject: "IhsanTrack verification code",
+    text: `Your verification code is ${code}. It expires in 10 minutes.`,
+    html: `<p>Your verification code is <strong>${code}</strong>.</p><p>This code expires in 10 minutes.</p>`,
+  });
+};
+
 export const register = async (req, res) => {
   try {
     const { full_name, email, password, role, phone } = req.body;
 
     const existing = await User.findOne({ where: { email } });
-    if (existing) {
+    if (existing && existing.is_email_verified) {
       return res.status(409).json({ error: "Email already registered" });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
-      full_name,
-      email,
-      password_hash,
-      role: role || "donor",
-      phone,
+    let user = existing;
+    if (!user) {
+      user = await User.create({
+        full_name,
+        email,
+        password_hash,
+        role: role || "donor",
+        phone,
+        is_email_verified: false,
+      });
+    } else {
+      await user.update({
+        full_name,
+        password_hash,
+        role: role || "donor",
+        phone,
+      });
+    }
+
+    const code = await setUserEmailCode(user);
+    await sendRegistrationCodeEmail(user.email, code);
+
+    return res.status(201).json({
+      message: "Verification code sent to your email",
+      requires_email_verification: true,
+      email: user.email,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const checkEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+
+    return res.json({
+      exists: Boolean(user),
+      is_verified: Boolean(user?.is_email_verified),
+      message: user ? "Email already registered" : "Email is available",
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const verifyRegistrationCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.is_email_verified) {
+      const token = issueAuthToken(user);
+      res.cookie("token", token, buildAuthCookieOptions());
+      return res.json({
+        message: "Email already verified",
+        user: sanitizeUser(user),
+      });
+    }
+
+    const isExpired = !user.email_verification_expires || new Date(user.email_verification_expires) < new Date();
+    if (isExpired) {
+      return res.status(400).json({ error: "Verification code expired" });
+    }
+
+    if (!user.email_verification_code || user.email_verification_code !== code) {
+      return res.status(400).json({ error: "Invalid verification code" });
+    }
+
+    await user.update({
+      is_email_verified: true,
+      email_verification_code: null,
+      email_verification_expires: null,
     });
 
     const token = issueAuthToken(user);
     res.cookie("token", token, buildAuthCookieOptions());
 
-    return res.status(201).json({
-      message: "User registered successfully",
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-      },
+    return res.json({
+      message: "Email verified successfully",
+      user: sanitizeUser(user),
     });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const resendRegistrationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.is_email_verified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
+
+    const code = await setUserEmailCode(user);
+    await sendRegistrationCodeEmail(user.email, code);
+
+    return res.json({ message: "Verification code resent" });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -201,18 +330,98 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    if (!user.is_email_verified) {
+      return res.status(403).json({ error: "Please verify your email first" });
+    }
+
     const token = issueAuthToken(user);
     res.cookie("token", token, buildAuthCookieOptions());
 
     return res.json({
       message: "Login successful",
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-      },
+      user: sanitizeUser(user),
     });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    const { full_name, avatar_url, phone } = req.body;
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await user.update({
+      full_name: full_name ?? user.full_name,
+      avatar_url: avatar_url ?? user.avatar_url,
+      phone: phone ?? user.phone,
+    });
+
+    return res.json({
+      message: "Profile updated successfully",
+      user: sanitizeUser(user),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.json({
+        message: "If an account exists with this email, a reset link has been sent.",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await user.update({
+      reset_password_token: resetToken,
+      reset_password_expires: resetExpires,
+    });
+
+    const resetUrl = buildResetPasswordUrl(resetToken);
+    await sendEmail({
+      to: user.email,
+      subject: "IhsanTrack password reset",
+      text: `Reset your password using this link: ${resetUrl}`,
+      html: `<p>Reset your password by clicking <a href="${resetUrl}">this link</a>. This link expires in 1 hour.</p>`,
+    });
+
+    return res.json({
+      message: "If an account exists with this email, a reset link has been sent.",
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    const user = await User.findOne({ where: { reset_password_token: token } });
+    if (!user || !user.reset_password_expires || new Date(user.reset_password_expires) < new Date()) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    await user.update({
+      password_hash,
+      reset_password_token: null,
+      reset_password_expires: null,
+    });
+
+    return res.json({ message: "Password reset successful" });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -226,13 +435,22 @@ export const logout = (req, res) => {
 export const me = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ["password_hash", "verification_token"] },
+      attributes: {
+        exclude: [
+          "password_hash",
+          "verification_token",
+          "email_verification_code",
+          "email_verification_expires",
+          "reset_password_token",
+          "reset_password_expires",
+        ],
+      },
       include: [{ model: Association, as: "associationProfile" }],
     });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    return res.json(user);
+    return res.json(sanitizeUser(user));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

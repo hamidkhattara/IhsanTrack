@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createEvent,
   getAllEvents,
+  getMyEvents,
   getEventById,
   updateEvent,
   deleteEvent,
@@ -43,6 +44,8 @@ const router = Router();
  *         description: Events list
  */
 router.get("/", getAllEvents);
+
+router.get("/my", authenticate, getMyEvents);
 
 /**
  * @swagger

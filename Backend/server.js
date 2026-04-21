@@ -97,7 +97,9 @@ const start = async () => {
 
     await repairVolunteersRegistryEventFk();
 
-    await sequelize.sync({ alter: true });
+    // The database schema is managed explicitly to avoid Sequelize repeatedly
+    // adding indexes/constraints during alter sync and hitting MySQL's key limit.
+    await sequelize.sync();
     console.log("All models synchronized.");
 
     app.listen(PORT, () => {

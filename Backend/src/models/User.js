@@ -37,6 +37,27 @@ const User = sequelize.define(
       allowNull: true,
       unique: true,
     },
+    avatar_url: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    email_verification_code: {
+      type: DataTypes.STRING(6),
+      allowNull: true,
+    },
+    email_verification_expires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    reset_password_token: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      unique: true,
+    },
+    reset_password_expires: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     phone: {
       type: DataTypes.STRING(10),
       allowNull: false,
