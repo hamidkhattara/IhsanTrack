@@ -45,7 +45,7 @@ const router = Router();
  */
 router.get("/", getAllEvents);
 
-router.get("/my", authenticate, getMyEvents);
+router.get("/my", authenticate, authorize("donor", "volunteer"), getMyEvents);
 
 /**
  * @swagger
@@ -156,7 +156,6 @@ router.put(
   "/:id",
   authenticate,
   authorize("association"),
-  requireVerifiedAssociation,
   validate(updateEventSchema),
   updateEvent
 );
@@ -211,7 +210,7 @@ router.delete(
  *       401:
  *         description: You must be logged in to perform this action
  */
-router.post("/:id/register", authenticate, registerForEvent);
+router.post("/:id/register", authenticate, authorize("donor", "volunteer"), registerForEvent);
 
 /**
  * @swagger
@@ -233,7 +232,7 @@ router.post("/:id/register", authenticate, registerForEvent);
  *       401:
  *         description: You must be logged in to perform this action
  */
-router.delete("/:id/unregister", authenticate, unregisterFromEvent);
+router.delete("/:id/unregister", authenticate, authorize("donor", "volunteer"), unregisterFromEvent);
 
 /**
  * @swagger

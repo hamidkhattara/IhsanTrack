@@ -5,7 +5,7 @@ import {
   getDonationById,
   getMyDonations,
 } from "../controllers/donation.controller.js";
-import { authenticate } from "../middlewares/auth.js";
+import { authenticate, authorize } from "../middlewares/auth.js";
 import { validate } from "../middlewares/validate.js";
 import { createDonationSchema } from "../validators/donation.validator.js";
 
@@ -110,6 +110,6 @@ router.get("/:id", getDonationById);
  *       401:
  *         description: You must be logged in to perform this action
  */
-router.post("/", authenticate, validate(createDonationSchema), createDonation);
+router.post("/", authenticate, authorize("donor", "volunteer", "association"), validate(createDonationSchema), createDonation);
 
 export default router;

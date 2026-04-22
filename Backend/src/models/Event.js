@@ -23,7 +23,7 @@ const Event = sequelize.define(
       allowNull: false,
     },
     image_url: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT("long"),
       allowNull: false,
     },
     start_date: {

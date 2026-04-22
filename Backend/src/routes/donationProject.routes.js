@@ -136,7 +136,6 @@ router.put(
   "/:id",
   authenticate,
   authorize("association"),
-  requireVerifiedAssociation,
   validate(updateDonationProjectSchema),
   updateDonationProject
 );

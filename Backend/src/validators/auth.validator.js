@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const imageSourceSchema = z.string().min(1).refine(
+  (value) => value.startsWith("data:image/") || /^https?:\/\//.test(value),
+  "Image must be a valid data URL or remote URL"
+);
+
 export const registerSchema = z.object({
   full_name: z.string().min(2).max(100),
   email: z.string().email(),
@@ -16,7 +21,7 @@ export const registerAssociationSchema = z.object({
   social_number: z.string().min(2).max(100),
   name: z.string().min(2).max(200),
   description: z.string().min(10),
-  logo_url: z.string().url(),
+  logo_url: imageSourceSchema,
   wilaya: z.string().min(1).max(100),
   Maps_link: z.string().url(),
   phone_number: z.string().min(8).max(20),

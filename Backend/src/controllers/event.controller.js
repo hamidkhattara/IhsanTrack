@@ -131,7 +131,20 @@ export const deleteEvent = async (req, res) => {
 
 export const registerForEvent = async (req, res) => {
   try {
-    const event = await Event.findByPk(req.params.id);
+    if (req.user.role === "association") {
+      return res.status(403).json({ error: "Association accounts cannot register for events" });
+    }
+
+    const event = await Event.findByPk(req.params.id, {
+      include: [
+        {
+          model: Association,
+          as: "association",
+          attributes: ["id", "name"],
+          include: [{ model: User, as: "user", attributes: ["id", "email", "full_name"] }],
+        },
+      ],
+    });
     if (!event) return res.status(404).json({ error: "Event not found" });
 
     if (event.spots_taken >= event.max_participants) {
@@ -150,6 +163,24 @@ export const registerForEvent = async (req, res) => {
       event_id: event.id,
       status: "pending",
     });
+
+    const participant = await User.findByPk(req.user.id, {
+      attributes: ["id", "full_name", "email", "phone"],
+    });
+    const associationEmail = event.association?.user?.email;
+
+    if (associationEmail && participant) {
+      try {
+        await sendEmail({
+          to: associationEmail,
+          subject: `New participation request for ${event.title}`,
+          text: `${participant.full_name} requested to participate in ${event.title}. Contact: ${participant.email} / ${participant.phone}`,
+          html: `<p><strong>${participant.full_name}</strong> requested to participate in <strong>${event.title}</strong>.</p><p>Participant contact: ${participant.email} / ${participant.phone}</p>`,
+        });
+      } catch (emailErr) {
+        console.error("Failed to send participation notification:", emailErr.message);
+      }
+    }
 
     return res.status(201).json({ message: "Event participation request sent and pending approval" });
   } catch (err) {

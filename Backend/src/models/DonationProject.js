@@ -23,7 +23,7 @@ const DonationProject = sequelize.define(
       allowNull: false,
     },
     image_url: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT("long"),
       allowNull: false,
     },
     goal_amount: {

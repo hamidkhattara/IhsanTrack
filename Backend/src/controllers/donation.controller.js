@@ -1,9 +1,23 @@
-import { Donation, DonationProject, User } from "../models/index.js";
+import { Donation, DonationProject, User, Association } from "../models/index.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 export const createDonation = async (req, res) => {
   try {
-    const donationProject = await DonationProject.findByPk(req.body.donation_project_id);
+    const donationProject = await DonationProject.findByPk(req.body.donation_project_id, {
+      include: [
+        {
+          model: Association,
+          as: "association",
+          attributes: ["id", "name", "user_id"],
+          include: [{ model: User, as: "user", attributes: ["id", "email", "full_name"] }],
+        },
+      ],
+    });
     if (!donationProject) return res.status(404).json({ error: "Donation project not found" });
+
+    if (req.user.role === "association" && donationProject.association?.user_id === req.user.id) {
+      return res.status(403).json({ error: "Association cannot donate to its own donation campaign" });
+    }
 
     if (donationProject.max_date && new Date(donationProject.max_date) < new Date()) {
       return res.status(400).json({ error: "Donation project has reached its deadline" });
@@ -16,6 +30,24 @@ export const createDonation = async (req, res) => {
     });
 
     await donationProject.increment("current_amount", { by: Number(req.body.amount) });
+
+    const donor = await User.findByPk(req.user.id, {
+      attributes: ["id", "full_name", "email", "phone"],
+    });
+    const associationEmail = donationProject.association?.user?.email;
+
+    if (associationEmail && donor) {
+      try {
+        await sendEmail({
+          to: associationEmail,
+          subject: `New donation for ${donationProject.title}`,
+          text: `${donor.full_name} donated ${req.body.amount} DZD to ${donationProject.title}. Contact: ${donor.email} / ${donor.phone}`,
+          html: `<p><strong>${donor.full_name}</strong> donated <strong>${req.body.amount} DZD</strong> to <strong>${donationProject.title}</strong>.</p><p>Donor contact: ${donor.email} / ${donor.phone}</p>`,
+        });
+      } catch (emailErr) {
+        console.error("Failed to send donation notification:", emailErr.message);
+      }
+    }
 
     return res.status(201).json(donation);
   } catch (err) {

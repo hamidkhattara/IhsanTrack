@@ -57,9 +57,17 @@ const repairVolunteersRegistryEventFk = async () => {
   }
 };
 
+const widenImageColumns = async () => {
+  await sequelize.query("ALTER TABLE users MODIFY avatar_url LONGTEXT NULL");
+  await sequelize.query("ALTER TABLE associations MODIFY logo_url LONGTEXT NOT NULL");
+  await sequelize.query("ALTER TABLE donation_projects MODIFY image_url LONGTEXT NOT NULL");
+  await sequelize.query("ALTER TABLE events MODIFY image_url LONGTEXT NOT NULL");
+};
+
 // ── Middleware ──
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
 
 // ── Swagger Docs ──
@@ -98,6 +106,7 @@ const start = async () => {
     await repairVolunteersRegistryEventFk();
 
     // The database schema is managed explicitly to avoid Sequelize repeatedly
+      await widenImageColumns();
     // adding indexes/constraints during alter sync and hitting MySQL's key limit.
     await sequelize.sync();
     console.log("All models synchronized.");

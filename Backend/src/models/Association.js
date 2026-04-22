@@ -29,7 +29,7 @@ const Association = sequelize.define(
       allowNull: false,
     },
     logo_url: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT("long"),
       allowNull: false,
     },
     wilaya: {

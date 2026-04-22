@@ -2,8 +2,11 @@ import { Router } from "express";
 import {
   getAllAssociations,
   getAssociationById,
+  getMyAssociation,
   updateAssociation,
   deleteAssociation,
+  getMyCampaigns,
+  getMyEvents,
 } from "../controllers/association.controller.js";
 import {
   authenticate,
@@ -39,6 +42,8 @@ const router = Router();
  */
 router.get("/", getAllAssociations);
 
+router.get("/me", authenticate, authorize("association"), getMyAssociation);
+
 /**
  * @swagger
  * /api/associations/{id}:
@@ -58,6 +63,9 @@ router.get("/", getAllAssociations);
  *         description: Association not found
  */
 router.get("/:id", getAssociationById);
+
+router.get("/me/campaigns", authenticate, authorize("association"), getMyCampaigns);
+router.get("/me/events", authenticate, authorize("association"), getMyEvents);
 
 /**
  * @swagger
@@ -85,7 +93,6 @@ router.put(
   "/:id",
   authenticate,
   authorize("association"),
-  requireVerifiedAssociation,
   validate(updateAssociationSchema),
   updateAssociation
 );

@@ -38,7 +38,7 @@ const User = sequelize.define(
       unique: true,
     },
     avatar_url: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT("long"),
       allowNull: true,
     },
     email_verification_code: {

@@ -108,16 +108,22 @@ const run = async () => {
   });
   assertStatus("registerAssociation", associationRegistration, 201);
 
-  console.log("[2] verifyEmail");
+  console.log("[2] verify association code");
   const assocUser = await User.findOne({ where: { email: assocEmail } });
-  if (!assocUser?.verification_token) {
-    throw new Error("verifyEmail setup failed: verification token missing");
+  if (!assocUser?.email_verification_code) {
+    throw new Error("association verify setup failed: verification code missing");
   }
 
   const verifyEmailResponse = await req({
-    path: `/auth/verify-email?token=${encodeURIComponent(assocUser.verification_token)}`,
+    path: "/auth/verify-registration-code",
+    method: "POST",
+    jar: assocJar,
+    body: {
+      email: assocEmail,
+      code: assocUser.email_verification_code,
+    },
   });
-  assertStatus("verifyEmail", verifyEmailResponse, 200);
+  assertStatus("verify association code", verifyEmailResponse, 200);
 
   console.log("[3] register volunteer");
   const volunteerRegistration = await req({
@@ -133,6 +139,23 @@ const run = async () => {
     },
   });
   assertStatus("register volunteer", volunteerRegistration, 201);
+
+  console.log("[3.1] verify volunteer code");
+  const volunteerUserUnverified = await User.findOne({ where: { email: volunteerEmail } });
+  if (!volunteerUserUnverified?.email_verification_code) {
+    throw new Error("volunteer verify setup failed: verification code missing");
+  }
+
+  const volunteerVerify = await req({
+    path: "/auth/verify-registration-code",
+    method: "POST",
+    jar: volunteerJar,
+    body: {
+      email: volunteerEmail,
+      code: volunteerUserUnverified.email_verification_code,
+    },
+  });
+  assertStatus("verify volunteer code", volunteerVerify, 200);
 
   console.log("[4] createDonation strict auth check");
   const donationUnauthorized = await req({

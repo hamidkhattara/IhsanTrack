@@ -1,4 +1,4 @@
-import { Association, User, DonationProject } from "../models/index.js";
+import { Association, User, DonationProject, Event, Donation } from "../models/index.js";
 
 export const getAllAssociations = async (req, res) => {
   try {
@@ -27,9 +27,33 @@ export const getAssociationById = async (req, res) => {
       include: [
         { model: User, as: "user", attributes: ["id", "full_name", "email", "is_email_verified"] },
         { model: DonationProject, as: "donationProjects" },
+        { model: Event, as: "events" },
       ],
     });
     if (!association) return res.status(404).json({ error: "Association not found" });
+    return res.json(association);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMyAssociation = async (req, res) => {
+  try {
+    const association = await Association.findOne({
+      where: { user_id: req.user.id },
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "full_name", "email", "phone", "is_email_verified"],
+        },
+      ],
+    });
+
+    if (!association) {
+      return res.status(404).json({ error: "Association profile not found" });
+    }
+
     return res.json(association);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -63,6 +87,60 @@ export const deleteAssociation = async (req, res) => {
 
     await association.destroy();
     return res.json({ message: "Association deleted successfully" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMyCampaigns = async (req, res) => {
+  try {
+    const association = await Association.findOne({ where: { user_id: req.user.id } });
+    if (!association) {
+      return res.status(404).json({ error: "Association profile not found" });
+    }
+
+    const campaigns = await DonationProject.findAll({
+      where: { association_id: association.id },
+      include: [
+        { model: Association, as: "association", attributes: ["id", "name", "wilaya"] },
+        {
+          model: Donation,
+          as: "donations",
+          attributes: ["id", "amount", "user_id", "date", "payment_method"],
+          include: [{ model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] }],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json(campaigns);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMyEvents = async (req, res) => {
+  try {
+    const association = await Association.findOne({ where: { user_id: req.user.id } });
+    if (!association) {
+      return res.status(404).json({ error: "Association profile not found" });
+    }
+
+    const events = await Event.findAll({
+      where: { association_id: association.id },
+      include: [
+        { model: Association, as: "association", attributes: ["id", "name", "wilaya"] },
+        {
+          model: User,
+          as: "volunteers",
+          attributes: ["id", "full_name", "email", "phone"],
+          through: { attributes: ["status", "registered_at"] },
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json(events);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

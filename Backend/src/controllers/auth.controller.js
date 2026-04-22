@@ -35,11 +35,28 @@ const sanitizeUser = (user) => ({
   phone: user.phone,
   is_email_verified: user.is_email_verified,
   createdAt: user.createdAt,
+  associationProfile: user.associationProfile
+    ? {
+        id: user.associationProfile.id,
+        social_number: user.associationProfile.social_number,
+        name: user.associationProfile.name,
+        description: user.associationProfile.description,
+        logo_url: user.associationProfile.logo_url,
+        wilaya: user.associationProfile.wilaya,
+        Maps_link: user.associationProfile.Maps_link,
+        phone_number: user.associationProfile.phone_number,
+        social_media_links: user.associationProfile.social_media_links,
+        opening_hours: user.associationProfile.opening_hours,
+        agreed_to_tos: user.associationProfile.agreed_to_tos,
+        createdAt: user.associationProfile.createdAt,
+        updatedAt: user.associationProfile.updatedAt,
+      }
+    : null,
 });
 
 const buildVerificationCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
-const setUserEmailCode = async (user) => {
+const setUserEmailCode = async (user, options = {}) => {
   const code = buildVerificationCode();
   const expires = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -47,7 +64,7 @@ const setUserEmailCode = async (user) => {
     email_verification_code: code,
     email_verification_expires: expires,
     is_email_verified: false,
-  });
+  }, options);
 
   return code;
 };
@@ -207,83 +224,111 @@ export const registerAssociation = async (req, res) => {
       agreed_to_tos,
     } = req.body;
 
-    const existing = await User.findOne({ where: { email }, transaction: tx });
-    if (existing) {
+    let user = await User.findOne({ where: { email }, transaction: tx });
+    if (user && user.is_email_verified) {
       await tx.rollback();
       return res.status(409).json({ error: "Email already registered" });
+    }
+
+    if (user && user.role !== "association") {
+      await tx.rollback();
+      return res.status(409).json({ error: "This email belongs to a different account type" });
+    }
+
+    let association = null;
+    if (user) {
+      association = await Association.findOne({ where: { user_id: user.id }, transaction: tx });
     }
 
     const socialNumberTaken = await Association.findOne({
       where: { social_number },
       transaction: tx,
     });
-    if (socialNumberTaken) {
+    if (socialNumberTaken && (!association || socialNumberTaken.id !== association.id)) {
       await tx.rollback();
       return res.status(409).json({ error: "Social number already registered" });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
-    const verification_token = crypto.randomBytes(32).toString("hex");
 
-    const user = await User.create(
-      {
-        full_name,
-        email,
-        password_hash,
-        role: "association",
-        phone,
-        is_email_verified: false,
-        verification_token,
-      },
-      { transaction: tx }
-    );
+    if (!user) {
+      user = await User.create(
+        {
+          full_name,
+          email,
+          password_hash,
+          role: "association",
+          phone,
+          is_email_verified: false,
+          verification_token: null,
+        },
+        { transaction: tx }
+      );
+    } else {
+      await user.update(
+        {
+          full_name,
+          password_hash,
+          role: "association",
+          phone,
+          is_email_verified: false,
+          verification_token: null,
+        },
+        { transaction: tx }
+      );
+    }
 
-    const association = await Association.create(
-      {
-        user_id: user.id,
-        social_number,
-        name,
-        description,
-        logo_url,
-        wilaya,
-        Maps_link,
-        phone_number,
-        social_media_links,
-        opening_hours,
-        agreed_to_tos,
-      },
-      { transaction: tx }
-    );
+    if (!association) {
+      association = await Association.create(
+        {
+          user_id: user.id,
+          social_number,
+          name,
+          description,
+          logo_url,
+          wilaya,
+          Maps_link,
+          phone_number,
+          social_media_links,
+          opening_hours,
+          agreed_to_tos,
+        },
+        { transaction: tx }
+      );
+    } else {
+      await association.update(
+        {
+          social_number,
+          name,
+          description,
+          logo_url,
+          wilaya,
+          Maps_link,
+          phone_number,
+          social_media_links,
+          opening_hours,
+          agreed_to_tos,
+        },
+        { transaction: tx }
+      );
+    }
 
-    const token = issueAuthToken(user);
+    const code = await setUserEmailCode(user, { transaction: tx });
 
     try {
-      const verificationUrl = buildVerificationUrl(verification_token);
-      await sendEmail({
-        to: user.email,
-        subject: "Verify your IhsanTrack association email",
-        text: `Welcome to IhsanTrack. Verify your email using this link: ${verificationUrl}`,
-        html: `<p>Welcome to IhsanTrack.</p><p>Verify your email by clicking <a href="${verificationUrl}">this link</a>.</p>`,
-      });
+      await sendRegistrationCodeEmail(user.email, code);
     } catch (emailErr) {
       await tx.rollback();
-      return res.status(500).json({ error: `Association created failed while sending verification email: ${emailErr.message}` });
+      return res.status(500).json({ error: `Association registration failed while sending verification code: ${emailErr.message}` });
     }
 
     await tx.commit();
 
-    res.cookie("token", token, buildAuthCookieOptions());
-
     return res.status(201).json({
-      message: "Association registered successfully. Please verify your email to activate association actions.",
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-        is_email_verified: user.is_email_verified,
-      },
-      association,
+      message: "Verification code sent to your email",
+      requires_email_verification: true,
+      email: user.email,
+      role: "association",
     });
   } catch (err) {
     if (!tx.finished) {
