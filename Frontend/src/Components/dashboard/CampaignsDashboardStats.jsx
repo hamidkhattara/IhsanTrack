@@ -25,49 +25,49 @@
  * Response: { totalRaised, activeCampaigns, totalDonors, growthRates }
  */
 
-const stats = [
-  {
-    id: 1,
-    icon: "💰",
-    iconBg: "bg-green-900/40 border-green-800/40",
-    label: "إجمالي التبرعات",
-    value: "5,240,000",
-    unit: "دج",
-    unitPosition: "before", // دج before the number (RTL)
-    badge: "+175% نسبة النمو",
-    badgeColor: "text-green-400 bg-green-900/30 border-green-800/40",
-    badgeIcon: "↑",
-  },
-  {
-    id: 2,
-    icon: "📢",
-    iconBg: "bg-blue-900/40 border-blue-800/40",
-    label: "الحملات النشطة",
-    value: "12",
-    unit: "",
-    unitPosition: "after",
-    badge: "+24 حملات جديدة",
-    badgeColor: "text-blue-400 bg-blue-900/30 border-blue-800/40",
-    badgeIcon: "↑",
-  },
-  {
-    id: 3,
-    icon: "👥",
-    iconBg: "bg-purple-900/40 border-purple-800/40",
-    label: "عدد المتبرعين",
-    value: "1,450",
-    unit: "",
-    unitPosition: "after",
-    badge: "+100% زيادة",
-    badgeColor: "text-purple-400 bg-purple-900/30 border-purple-800/40",
-    badgeIcon: "↑",
-  },
-];
+export default function CampaignsDashboardStats({ stats }) {
+  const cards = [
+    {
+      id: 1,
+      icon: "💰",
+      iconBg: "bg-green-900/40 border-green-800/40",
+      label: "إجمالي التبرعات",
+      value: Number(stats?.totalRaised || 0).toLocaleString("ar-DZ"),
+      unit: "دج",
+      unitPosition: "before",
+      badge: `${stats?.campaignCount || 0} حملة`,
+      badgeColor: "text-green-400 bg-green-900/30 border-green-800/40",
+      badgeIcon: "•",
+    },
+    {
+      id: 2,
+      icon: "📢",
+      iconBg: "bg-blue-900/40 border-blue-800/40",
+      label: "الحملات النشطة",
+      value: String(stats?.activeCampaigns || 0),
+      unit: "",
+      unitPosition: "after",
+      badge: `${stats?.completedCampaigns || 0} مكتملة`,
+      badgeColor: "text-blue-400 bg-blue-900/30 border-blue-800/40",
+      badgeIcon: "•",
+    },
+    {
+      id: 3,
+      icon: "👥",
+      iconBg: "bg-purple-900/40 border-purple-800/40",
+      label: "عدد المتبرعين",
+      value: String(stats?.uniqueDonors || 0),
+      unit: "",
+      unitPosition: "after",
+      badge: "بيانات فعلية من قاعدة البيانات",
+      badgeColor: "text-purple-400 bg-purple-900/30 border-purple-800/40",
+      badgeIcon: "•",
+    },
+  ];
 
-export default function CampaignsDashboardStats() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {stats.map((stat) => (
+      {cards.map((stat) => (
         <StatCard key={stat.id} stat={stat} />
       ))}
     </div>

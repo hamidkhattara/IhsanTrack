@@ -1,5 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * AssocDashboardNavbar.jsx
@@ -27,7 +29,15 @@ const dashboardTabs = [
 
 export default function AssocDashboardNavbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [avatarOpen, setAvatarOpen] = useState(false);
+
+  const handleLogout = async () => {
+    setAvatarOpen(false);
+    await logout();
+    navigate("/assoc_sign_in");
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-gray-950/98 backdrop-blur-sm border-b border-green-900/30">
@@ -64,7 +74,7 @@ export default function AssocDashboardNavbar() {
                 <div className="h-px bg-gray-800 my-1" />
                 <button
                   className="w-full text-right px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 transition-colors"
-                  onClick={() => { setAvatarOpen(false); /* call logout */ }}
+                  onClick={handleLogout}
                 >
                   تسجيل الخروج
                 </button>

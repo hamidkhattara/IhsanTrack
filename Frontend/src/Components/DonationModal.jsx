@@ -160,13 +160,19 @@ export default function DonationModal({ campaign, onClose }) {
   if (!campaign) return null;
 
   // ── derived ─────────────────────────────────────────────────────────────────
-  const raised        = campaign.raised ?? 50000;
-  const goal          = campaign.goal   ?? 100000;
-  const donors        = campaign.donors ?? 124;
+  const raised        = Number(campaign.raised ?? campaign.current_amount ?? campaign.currentAmount ?? 50000);
+  const goal          = Number(campaign.goal ?? campaign.goal_amount ?? campaign.goalAmount ?? 100000);
+  const donors        = campaign.donors ?? campaign.donor_count ?? 124;
   const progress      = Math.min(100, Math.round((raised / goal) * 100));
   const recentDonors  = campaign.recentDonors ?? FALLBACK_DONORS;
   const finalAmount   = customAmount ? Number(customAmount) : amount;
   const description   = campaign.description ?? "يهدف هذا المشروع إلى حفر آبار ارتوازية وتوصيل شبكات المياه للمناطق التي تعاني من الجفاف في ولايات الجنوب والداخل الجزائري. نسعى لتوفير مياه مستدامة ونظيفة لمئات العائلات.";
+  const coverImage    = campaign.coverImage ?? campaign.image_url ?? campaign.image;
+  const associationName = campaign.association?.name ?? campaign.associationName ?? campaign.association?.user?.full_name ?? "جمعية غير محددة";
+  const associationWilaya = campaign.association?.wilaya ?? campaign.associationWilaya ?? campaign.wilaya ?? "غير محددة";
+  const deadline      = campaign.max_date ?? campaign.end_date ?? campaign.deadline;
+  const category      = campaign.category ?? campaign.project_type ?? campaign.type;
+  const createdAt     = campaign.created_at ?? campaign.createdAt;
 
   // ── validate personal form ──────────────────────────────────────────────────
   const validatePersonal = () => {
@@ -218,7 +224,7 @@ export default function DonationModal({ campaign, onClose }) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       dir="rtl"
     >
@@ -226,20 +232,25 @@ export default function DonationModal({ campaign, onClose }) {
 
         {/* ══════════════════════ HERO IMAGE ══════════════════════ */}
         <div className="relative h-56 shrink-0 overflow-hidden">
-          {campaign.coverImage ? (
-            <img src={campaign.coverImage} alt={campaign.title} className="w-full h-full object-cover" />
+          {coverImage ? (
+            <img src={coverImage} alt={campaign.title} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-green-900 via-green-800 to-gray-900 flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-green-900 via-green-800 to-gray-900 flex items-center justify-center">
               <span className="text-8xl opacity-40 select-none">{campaign.imageEmoji ?? "💧"}</span>
               <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle, #22c55e 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/90 via-black/50 to-transparent" />
           {/* Status badge */}
           <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-green-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             حملة نشطة
           </div>
+          {deadline ? (
+            <div className="absolute top-4 left-4 bg-black/55 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/10">
+              تنتهي: {new Date(deadline).toLocaleDateString("ar-DZ")}
+            </div>
+          ) : null}
           {/* Close */}
           <button onClick={onClose} className="absolute top-3 left-3 w-8 h-8 bg-black/50 hover:bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center text-white/80 hover:text-white text-sm transition-all duration-200 border border-white/10" aria-label="إغلاق">✕</button>
           {/* Title */}
@@ -250,6 +261,12 @@ export default function DonationModal({ campaign, onClose }) {
 
         {/* ══════════════════════ STATS BAR ═══════════════════════ */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-800/60 shrink-0">
+          <div className="flex flex-wrap gap-2 justify-end mb-3">
+            <DetailChip label={associationName} tone="green" />
+            <DetailChip label={`الولاية: ${associationWilaya}`} tone="gray" />
+            {category ? <DetailChip label={category} tone="gray" /> : null}
+            {createdAt ? <DetailChip label={new Date(createdAt).toLocaleDateString("ar-DZ")} tone="gray" /> : null}
+          </div>
           <div className="grid grid-cols-2 gap-3 mb-2.5">
             <div className="text-right">
               <p className="text-gray-400 text-xs mb-0.5">المبلغ المجمع</p>
@@ -261,7 +278,7 @@ export default function DonationModal({ campaign, onClose }) {
             </div>
           </div>
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden mb-1.5">
-            <div className="h-full bg-gradient-to-l from-green-400 to-green-600 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+            <div className="h-full bg-linear-to-l from-green-400 to-green-600 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">{donors} متبرع</span>
@@ -287,6 +304,12 @@ export default function DonationModal({ campaign, onClose }) {
                     {descExpanded ? "عرض أقل ↑" : "عرض المزيد ↓"}
                   </button>
                 )}
+              </div>
+              <div className="px-5 pb-4">
+                <div className="grid grid-cols-2 gap-3 text-right">
+                  <InfoRow label="الجمعية" value={associationName} />
+                  <InfoRow label="الولاية" value={associationWilaya} />
+                </div>
               </div>
               {/* Recent donors */}
               <div className="px-5 pb-4">
@@ -601,8 +624,29 @@ function FormField({ label, required, error, children }) {
 function SummaryRow({ label, value, small }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className={`text-white font-semibold ${small ? "text-xs truncate max-w-[160px]" : "text-sm"}`}>{value}</span>
+      <span className={`text-white font-semibold ${small ? "text-xs truncate max-w-40" : "text-sm"}`}>{value}</span>
       <span className="text-gray-500 text-xs shrink-0">{label}</span>
     </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2">
+      <p className="text-gray-500 text-xs mb-0.5">{label}</p>
+      <p className="text-white text-sm font-semibold leading-snug">{value || "—"}</p>
+    </div>
+  );
+}
+
+function DetailChip({ label, tone }) {
+  const styles = tone === "green"
+    ? "bg-green-900/20 text-green-300 border-green-800/50"
+    : "bg-gray-900 text-gray-300 border-gray-800";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-xs font-medium ${styles}`}>
+      {label}
+    </span>
   );
 }

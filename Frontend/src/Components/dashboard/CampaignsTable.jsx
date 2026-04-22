@@ -43,6 +43,17 @@ export default function CampaignsTable({ campaigns, setCampaigns }) {
   const [page, setPage] = useState(1);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // id of campaign to delete
 
+  if (!campaigns || campaigns.length === 0) {
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center empty-state">
+        <h3 className="text-white text-lg font-bold">No records found</h3>
+        <p className="text-gray-400 text-sm mt-2">
+          You haven't created any campaigns yet. Click "Create" to start!
+        </p>
+      </div>
+    );
+  }
+
   // Filter by status tab
   const filtered = activeTab === "الجميع"
     ? campaigns

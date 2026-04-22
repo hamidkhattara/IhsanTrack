@@ -1,4 +1,5 @@
 
+import { Link } from 'react-router-dom'
 
 const Herosc = () => {
   return (
@@ -14,11 +15,17 @@ const Herosc = () => {
             <p className="text-[#D1D5DB] text-xl w-160">منصتك للأعمال الخيرية في الجزائر. نربط المتبرعين بالجمعيات
             الموثوقة لضمان وصول المساعدات لمستحقيها بكل شفافية وأمان.</p>
             <br />
-            <div className="flex gap-5"><button className="text-white transition-transform duration-300 bg-[#10B77F] hover:scale-103 h-10 w-27 pr-1 pt-1 rounded-lg text-lg">ابدأ التبرع</button><button className="text-white transition-transform duration-300 bg-gray-500/50 hover:scale-103 h-10 w-27 pr-1 pt-1 rounded-lg text-lg"> كيف نعمل</button></div>
+            <div className="flex flex-wrap gap-4">
+              <Link to="/campaigns" className="text-white  text-center transition-transform duration-300 bg-[#10B77F] hover:scale-103 h-11 w-28 pr-1 pt-1 rounded-lg text-lg">ابدأ التبرع</Link>
+              <Link to="/assoc_sign_up" className="inline-flex items-center justify-center text-white transition-transform duration-300 bg-white/10 hover:bg-white/15 hover:scale-103 h-11 w-36 rounded-lg text-lg border border-white/10">
+                إنشاء جمعية
+              </Link>
+              <Link to="/about_us" className="text-white text-center transition-transform duration-300 bg-gray-500/50 hover:scale-103 h-11 w-28 pr-1 pt-1 rounded-lg text-lg"> كيف نعمل</Link>
+            </div>
         </div>
 
-        <div className="w-110 h-100  border-1 border-white/10 mt-35 mr-79 rounded-3xl shadow-[0_0_40px_rgba(31,185,130,0.05)] bg-[#11231e]/60 backdrop-blur-3xl">
-            <h1 className="text-xl text-white pr-2 pb-3 pt-6 border-b-1 border-white/15 mr-10 w-90 ">الأثر المباشر</h1>
+        <div className="w-110 h-100 border border-white/10 mt-35 mr-79 rounded-3xl shadow-[0_0_40px_rgba(31,185,130,0.05)] bg-[#11231e]/60 backdrop-blur-3xl">
+          <h1 className="text-xl text-white pr-2 pb-3 pt-6 border-b border-white/15 mr-10 w-90 ">الأثر المباشر</h1>
             <div></div>
             <div></div>
             <div></div>

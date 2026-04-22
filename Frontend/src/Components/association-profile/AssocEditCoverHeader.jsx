@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { fileToDataUrl } from "../../utils/fileToDataUrl";
 
 /**
  * AssocEditCoverHeader.jsx
@@ -24,20 +25,18 @@ export default function AssocEditCoverHeader({ formData, updateField }) {
   const coverInputRef = useRef(null);
   const logoInputRef = useRef(null);
 
-  const handleCoverChange = (e) => {
+  const handleCoverChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => updateField("coverImage", ev.target.result);
-    reader.readAsDataURL(file);
+    const dataUrl = await fileToDataUrl(file);
+    updateField("coverImage", dataUrl);
   };
 
-  const handleLogoChange = (e) => {
+  const handleLogoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => updateField("logoImage", ev.target.result);
-    reader.readAsDataURL(file);
+    const dataUrl = await fileToDataUrl(file);
+    updateField("logoImage", dataUrl);
   };
 
   return (
@@ -59,7 +58,7 @@ export default function AssocEditCoverHeader({ formData, updateField }) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-linear-to-br from-gray-800 to-gray-900">
               {/* Placeholder heart image vibe */}
               <span className="text-6xl opacity-20 select-none">❤️</span>
             </div>
@@ -99,7 +98,7 @@ export default function AssocEditCoverHeader({ formData, updateField }) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-700 to-green-900">
+              <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-green-700 to-green-900">
                 <span className="text-white text-2xl font-black select-none">
                   {formData.name?.charAt(0) || "ج"}
                 </span>

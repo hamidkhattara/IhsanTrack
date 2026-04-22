@@ -1,210 +1,304 @@
-import { useState, useRef } from "react";
-
-/**
- * CreateEventForm.jsx
- *
- * USED ON: AssocEventsDashboardPage (toggled by "+ إنشاء فعالية جديدة" button)
- *
- * CONTAINS:
- * Card: "بيانات الحملة الجديدة"
- *
- * TWO-COLUMN layout (matches screenshot — mirrors CreateCampaignForm):
- *
- * LEFT column — صورة الغلاف:
- *   - Dashed click/drag upload zone
- *   - Image preview once selected
- *   - "اضغط لرفع صورة" hint + format info
- *
- * RIGHT column — Form fields:
- *   - عنوان الحملة*           → text input  (required)
- *   - المبلغ المستهدف (دج)*   → number input  (required, 0.00 placeholder)
- *   - وصف الحملة              → textarea (4 rows)
- *
- * Bottom: يلم الحملة (green submit) + إلغاء (ghost cancel)
- *
- * DIFFERENCES from CreateCampaignForm:
- * - This creates a VOLUNTEER EVENT (فعالية), not a donation campaign
- * - The event object includes: maxVolunteers, category, date fields
- *   (These can be added as additional form fields as needed)
- *
- * Props:
- *   onCreated(event) — called after successful creation with new event object
- *   onCancel()       — called when user clicks إلغاء
- *
- * API (production): POST /api/associations/me/events
- */
+import { useState } from "react";
+import api from "../../api/axios";
+import { fileToDataUrl } from "../../utils/fileToDataUrl";
 
 const EMPTY_FORM = {
   title: "",
-  goal: "",
   description: "",
-  coverImage: null,
+  image_url: "",
+  start_date: "",
+  end_date: "",
+  location_wilaya: "",
+  location_maps_link: "",
+  max_participants: "",
+  age_range: "",
 };
 
 export default function CreateEventForm({ onCreated, onCancel }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef(null);
+  const [requestError, setRequestError] = useState("");
+  const [imagePreview, setImagePreview] = useState("");
 
   const update = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setRequestError("");
   };
 
-  const handleImageFile = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => update("coverImage", e.target.result);
-    reader.readAsDataURL(file);
+  const handleImageFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const dataUrl = await fileToDataUrl(file);
+    update("image_url", dataUrl);
+    setImagePreview(dataUrl);
   };
 
   const validate = () => {
     const errs = {};
+
     if (!form.title.trim()) errs.title = "عنوان الفعالية مطلوب";
-    if (!form.goal || Number(form.goal) <= 0) errs.goal = "العدد الأقصى للمتطوعين يجب أن يكون أكبر من 0";
+    if (!form.description.trim() || form.description.trim().length < 10) {
+      errs.description = "وصف الفعالية يجب أن يكون 10 أحرف على الأقل";
+    }
+    if (!form.image_url.trim()) {
+      errs.image_url = "صورة الفعالية مطلوبة";
+    }
+    if (!form.start_date) errs.start_date = "تاريخ بداية الفعالية مطلوب";
+    if (!form.end_date) errs.end_date = "تاريخ نهاية الفعالية مطلوب";
+
+    const startDate = form.start_date ? new Date(form.start_date) : null;
+    const endDate = form.end_date ? new Date(form.end_date) : null;
+
+    if (startDate && Number.isNaN(startDate.getTime())) errs.start_date = "تاريخ البداية غير صالح";
+    if (endDate && Number.isNaN(endDate.getTime())) errs.end_date = "تاريخ النهاية غير صالح";
+    if (startDate && endDate && endDate <= startDate) {
+      errs.end_date = "تاريخ النهاية يجب أن يكون بعد تاريخ البداية";
+    }
+
+    if (!form.location_wilaya.trim()) errs.location_wilaya = "الولاية مطلوبة";
+    if (!/^https?:\/\//.test(form.location_maps_link.trim())) {
+      errs.location_maps_link = "رابط الموقع يجب أن يكون URL صالح";
+    }
+
+    const maxParticipants = Number(form.max_participants);
+    if (!form.max_participants || !Number.isInteger(maxParticipants) || maxParticipants <= 0) {
+      errs.max_participants = "العدد الأقصى للمشاركين يجب أن يكون رقماً صحيحاً أكبر من 0";
+    }
+
+    if (form.age_range && form.age_range.length > 50) {
+      errs.age_range = "الفئة العمرية يجب ألا تتجاوز 50 حرفاً";
+    }
+
     return errs;
+  };
+
+  const toCreatedEvent = (event) => {
+    const maxVolunteers = Number(event.max_participants || 0);
+    const volunteers = Number(event.spots_taken || 0);
+    const progress = maxVolunteers > 0 ? Math.min(100, Math.round((volunteers / maxVolunteers) * 100)) : 0;
+
+    let status = "انتظار";
+    const now = Date.now();
+    const start = event.start_date ? new Date(event.start_date).getTime() : now;
+    const end = event.end_date ? new Date(event.end_date).getTime() : now;
+
+    if (end < now || progress >= 100) status = "مكتملة";
+    else if (start <= now && end >= now) status = "نشطة";
+
+    return {
+      id: event.id,
+      title: event.title,
+      image: event.image_url,
+      imageEmoji: "📅",
+      volunteers,
+      maxVolunteers,
+      raised: volunteers,
+      goal: maxVolunteers,
+      progress,
+      status,
+      statusColor: status === "نشطة" ? "green" : status === "مكتملة" ? "blue" : "yellow",
+      createdAt: "الآن",
+      category: event.age_range || "عام",
+      description: event.description,
+    };
   };
 
   const handleSubmit = async () => {
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSubmitting(false);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
 
-    const newEvent = {
-      id: Date.now(),
-      title: form.title,
-      image: form.coverImage,
-      imageEmoji: "🌟",
-      volunteers: 0,
-      maxVolunteers: Number(form.goal),
-      raised: 0,
-      goal: Number(form.goal) * 1000,
-      progress: 0,
-      status: "انتظار",
-      statusColor: "yellow",
-      createdAt: "الآن",
-      category: "عام",
-      description: form.description,
-    };
-    setForm(EMPTY_FORM);
-    onCreated(newEvent);
+    setSubmitting(true);
+    setRequestError("");
+
+    try {
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        image_url: form.image_url.trim(),
+        start_date: new Date(form.start_date).toISOString(),
+        end_date: new Date(form.end_date).toISOString(),
+        location_wilaya: form.location_wilaya.trim(),
+        location_maps_link: form.location_maps_link.trim(),
+        max_participants: Number(form.max_participants),
+        age_range: form.age_range.trim() || undefined,
+        spots_taken: 0,
+      };
+
+      const token = window.localStorage.getItem("token");
+      const requestConfig = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : undefined;
+
+      const response = await api.post("/events", payload, requestConfig);
+      const createdEvent = toCreatedEvent(response.data);
+
+      setForm(EMPTY_FORM);
+      setImagePreview("");
+      onCreated(createdEvent);
+    } catch (err) {
+      const status = err?.response?.status;
+      const details = err?.response?.data?.details;
+      const firstDetail = Array.isArray(details) && details.length ? details[0]?.message : "";
+      const apiError = err?.response?.data?.error;
+      if (status === 403 && /verify/i.test(String(apiError || ""))) {
+        setRequestError("تحقق من البريد الإلكتروني للجمعية أولاً ثم أعد المحاولة.");
+      } else {
+        setRequestError(firstDetail || apiError || "فشل إنشاء الفعالية.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-      {/* Card header */}
       <div className="flex items-center justify-end gap-2 px-6 py-4 border-b border-gray-800">
-        <h3 className="text-white font-bold text-base">بيانات الحملة الجديدة</h3>
+        <h3 className="text-white font-bold text-base">بيانات الفعالية الجديدة</h3>
         <span className="text-green-400 text-lg">✏️</span>
       </div>
 
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-          {/* LEFT — Cover image upload */}
-          <div className="md:col-span-1">
-            <p className="text-sm font-semibold text-gray-200 text-right mb-2">صورة الغلاف</p>
-            <div
-              className={`relative h-52 rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer flex flex-col items-center justify-center overflow-hidden
-                ${dragOver ? "border-green-500 bg-green-900/20" : "border-gray-700 hover:border-green-600 bg-gray-800/50"}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => { e.preventDefault(); setDragOver(false); handleImageFile(e.dataTransfer.files[0]); }}
-              role="button"
-              aria-label="رفع صورة الغلاف"
-            >
-              {form.coverImage ? (
-                <>
-                  <img src={form.coverImage} alt="غلاف" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">تغيير الصورة</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-3 px-4 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-gray-700 border border-gray-600 flex items-center justify-center">
-                    <span className="text-2xl">📷</span>
-                  </div>
-                  <p className="text-gray-300 text-sm font-medium">اضغط لرفع صورة</p>
-                  <p className="text-gray-500 text-xs">أو اسحب وأفلت الملف هنا</p>
-                  <p className="text-gray-600 text-xs">PNG, JPG — حتى 5MB</p>
-                </div>
-              )}
-            </div>
+        <div className="space-y-4 text-right">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">
+              عنوان الفعالية<span className="text-green-400 mr-1">*</span>
+            </label>
             <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleImageFile(e.target.files[0])}
+              type="text"
+              value={form.title}
+              onChange={(e) => update("title", e.target.value)}
+              placeholder="مثال: حملة تنظيف الحي"
+              className={inputCls(errors.title)}
+              dir="rtl"
             />
+            {errors.title ? <p className="text-red-400 text-xs">{errors.title}</p> : null}
           </div>
 
-          {/* RIGHT — Form fields */}
-          <div className="md:col-span-2 space-y-4 text-right">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">
+              وصف الفعالية<span className="text-green-400 mr-1">*</span>
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => update("description", e.target.value)}
+              placeholder="اكتب وصفاً مفصلاً للفعالية..."
+              rows={4}
+              className={`${inputCls(errors.description)} resize-none leading-relaxed`}
+              dir="rtl"
+            />
+            {errors.description ? <p className="text-red-400 text-xs">{errors.description}</p> : null}
+          </div>
 
-            {/* عنوان الحملة */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">
+              صورة الغلاف من الجهاز<span className="text-green-400 mr-1">*</span>
+            </label>
+            <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-700 bg-gray-900/60 px-4 py-5 text-center cursor-pointer hover:border-green-500 transition-colors">
+              <span className="text-3xl">🖼️</span>
+              <span className="text-sm text-gray-300 font-medium">اختر صورة من جهازك</span>
+              <span className="text-xs text-gray-500">PNG, JPG, WEBP</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+            </label>
+            {imagePreview ? (
+              <img src={imagePreview} alt="معاينة صورة الفعالية" className="h-36 w-full rounded-2xl object-cover border border-gray-800" />
+            ) : null}
+            {errors.image_url ? <p className="text-red-400 text-xs">{errors.image_url}</p> : null}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-gray-200">
-                عنوان الحملة<span className="text-green-400 mr-1">*</span>
-              </label>
+              <label className="block text-sm font-semibold text-gray-200">تاريخ البداية*</label>
               <input
-                type="text"
-                value={form.title}
-                onChange={(e) => update("title", e.target.value)}
-                placeholder="مثال: قفة رمضان 2025"
-                className={inputCls(errors.title)}
-                dir="rtl"
+                type="datetime-local"
+                value={form.start_date}
+                onChange={(e) => update("start_date", e.target.value)}
+                className={inputCls(errors.start_date)}
+                dir="ltr"
               />
-              {errors.title && <p className="text-red-400 text-xs">{errors.title}</p>}
+              {errors.start_date ? <p className="text-red-400 text-xs">{errors.start_date}</p> : null}
             </div>
 
-            {/* المبلغ المستهدف (دج) */}
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-gray-200">
-                المبلغ المستهدف (دج)<span className="text-green-400 mr-1">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  value={form.goal}
-                  onChange={(e) => update("goal", e.target.value)}
-                  placeholder="0.00"
-                  className={`${inputCls(errors.goal)} pl-14 text-left`}
-                  dir="ltr"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm select-none">دج</span>
-              </div>
-              {errors.goal && <p className="text-red-400 text-xs">{errors.goal}</p>}
-            </div>
-
-            {/* وصف الحملة */}
-            <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-gray-200">وصف الحملة</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-                placeholder="اكتب وصفاً مختصراً لأهداف الحملة وأهدافها..."
-                rows={4}
-                className={`${inputCls()} resize-none leading-relaxed`}
-                dir="rtl"
+              <label className="block text-sm font-semibold text-gray-200">تاريخ النهاية*</label>
+              <input
+                type="datetime-local"
+                value={form.end_date}
+                onChange={(e) => update("end_date", e.target.value)}
+                className={inputCls(errors.end_date)}
+                dir="ltr"
               />
+              {errors.end_date ? <p className="text-red-400 text-xs">{errors.end_date}</p> : null}
             </div>
+          </div>
 
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">الولاية*</label>
+            <input
+              type="text"
+              value={form.location_wilaya}
+              onChange={(e) => update("location_wilaya", e.target.value)}
+              placeholder="مثال: الجزائر"
+              className={inputCls(errors.location_wilaya)}
+              dir="rtl"
+            />
+            {errors.location_wilaya ? <p className="text-red-400 text-xs">{errors.location_wilaya}</p> : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">رابط الموقع على الخريطة*</label>
+            <input
+              type="url"
+              value={form.location_maps_link}
+              onChange={(e) => update("location_maps_link", e.target.value)}
+              placeholder="https://maps.google.com/..."
+              className={inputCls(errors.location_maps_link)}
+              dir="ltr"
+            />
+            {errors.location_maps_link ? <p className="text-red-400 text-xs">{errors.location_maps_link}</p> : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">العدد الأقصى للمشاركين*</label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={form.max_participants}
+              onChange={(e) => update("max_participants", e.target.value)}
+              placeholder="100"
+              className={inputCls(errors.max_participants)}
+              dir="ltr"
+            />
+            {errors.max_participants ? <p className="text-red-400 text-xs">{errors.max_participants}</p> : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">الفئة العمرية (اختياري)</label>
+            <input
+              type="text"
+              value={form.age_range}
+              onChange={(e) => update("age_range", e.target.value)}
+              placeholder="18-35"
+              className={inputCls(errors.age_range)}
+              dir="rtl"
+            />
+            {errors.age_range ? <p className="text-red-400 text-xs">{errors.age_range}</p> : null}
           </div>
         </div>
 
-        {/* Action buttons */}
+        {requestError ? <p className="text-red-400 text-sm mt-4 text-right">{requestError}</p> : null}
+
         <div className="flex items-center gap-3 justify-start mt-6 pt-5 border-t border-gray-800">
           <button
             onClick={onCancel}
-            className="px-5 py-2.5 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-xl transition-all duration-200"
+            disabled={submitting}
+            className="px-5 py-2.5 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             إلغاء
           </button>
@@ -218,7 +312,9 @@ export default function CreateEventForm({ onCreated, onCancel }) {
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 جاري الإنشاء...
               </>
-            ) : "✓ يلم الحملة"}
+            ) : (
+              "✓ إنشاء الفعالية"
+            )}
           </button>
         </div>
       </div>

@@ -3,6 +3,8 @@ import './App.css'
 import Home from './Pages/Home'
 import User_sign_in from './Pages/User_sign_in'
 import User_sign_up from './Pages/User_sign_up'
+import Assoc_sign_in from './Pages/Assoc_sign_in'
+import Assoc_sign_up from './Pages/Assoc_sign_up'
 import Associations from './Pages/Associations'
 import Campaigns from './Pages/Campaigns'
 import About_us from './Pages/About_us'
@@ -34,12 +36,15 @@ function App() {
       <Route path='/events' element={<Events/>}/>
       <Route path='/user_sign_in' element={<User_sign_in/>}/>
       <Route path='/user_sign_up' element={<User_sign_up/>}/>
+      <Route path='/assoc_sign_in' element={<Assoc_sign_in/>}/>
+      <Route path='/assoc_sign_up' element={<Assoc_sign_up/>}/>
       <Route path='/forgot-password' element={<ForgotPassword/>}/>
       <Route path='/reset-password' element={<ResetPassword/>}/>
       <Route path='/donate' element={<Donate/>}/>
       
       <Route path="/associations/:id" element={<AssocProfilePage />} />
       <Route path="/dashboard/association/profile"   element={<AssocEditProfilePage />} />
+      <Route path="/assoc-profile" element={<AssocEditProfilePage />} />
       <Route path="/dashboard/association/campaigns" element={<AssocCampaignsDashboardPage />} />
       <Route path="/dashboard/association/events"    element={<AssocEventsDashboardPage />} />
       <Route path="/dashboard/user/profile"          element={<UserProfilePage />} />

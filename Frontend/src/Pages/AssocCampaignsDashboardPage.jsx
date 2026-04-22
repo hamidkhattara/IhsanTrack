@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AssocDashboardNavbar from "../Components/dashboard/AssocDashboardNavbar";
 import DashboardFooter from "../Components/dashboard/DashboardFooter";
+import AssociationActivityPanel from "../Components/dashboard/AssociationActivityPanel";
 import CampaignsDashboardStats from "../Components/dashboard/CampaignsDashboardStats";
 import CreateCampaignForm from "../Components/dashboard/CreateCampaignForm";
 import CampaignsTable from "../Components/dashboard/CampaignsTable";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * AssocCampaignsDashboardPage.jsx
@@ -40,53 +43,82 @@ import CampaignsTable from "../Components/dashboard/CampaignsTable";
  * Adding a new campaign via the form prepends it to the campaigns list.
  */
 
-// ── Mock campaigns data ──────────────────────────────────────────────────────
-// Replace with: GET /api/associations/me/campaigns
-const mockCampaigns = [
-  {
-    id: 1,
-    title: "قفة رمضان 2024",
-    image: null,
-    imageEmoji: "🍱",
-    donors: 45,
-    raised: 350000,
-    goal: 500000,
-    progress: 70,
-    status: "نشطة",
-    statusColor: "green",
-    createdAt: "قبل 45 يوم",
-  },
-  {
-    id: 2,
-    title: "حقيبة مدرسية للأيتام",
-    image: null,
-    imageEmoji: "🎒",
-    donors: 124,
-    raised: 450000,
-    goal: 700000,
-    progress: 64,
-    status: "انتظار",
-    statusColor: "yellow",
-    createdAt: "قبل 12 يوم",
-  },
-  {
-    id: 3,
-    title: "كسوة الشتاء",
-    image: null,
-    imageEmoji: "🧥",
-    donors: 6,
-    raised: 800000,
-    goal: 800000,
-    progress: 100,
-    status: "مكتملة",
-    statusColor: "blue",
-    createdAt: "قبل 3 أيام",
-  },
-];
-
 export default function AssocCampaignsDashboardPage() {
+  const { user, isAuthenticated, authLoading } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [campaigns, setCampaigns] = useState(mockCampaigns);
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const campaignStats = useMemo(() => {
+    const totalRaised = campaigns.reduce((sum, campaign) => sum + Number(campaign.raised || 0), 0);
+    const activeCampaigns = campaigns.filter((campaign) => campaign.status === "نشطة").length;
+    const completedCampaigns = campaigns.filter((campaign) => campaign.status === "مكتملة").length;
+    const uniqueDonors = new Set(
+      campaigns.flatMap((campaign) => (campaign.donationUserIds || []).filter(Boolean))
+    ).size;
+
+    return {
+      totalRaised,
+      campaignCount: campaigns.length,
+      activeCampaigns,
+      completedCampaigns,
+      uniqueDonors,
+    };
+  }, [campaigns]);
+
+  const recentDonations = useMemo(
+    () =>
+      campaigns.flatMap((campaign) =>
+        (campaign.donations || []).map((donation) => ({
+          id: donation.id,
+          amount: donation.amount,
+          date: donation.date,
+          payment_method: donation.payment_method,
+          projectTitle: campaign.title,
+          donorName: donation.donor?.full_name,
+          donor: donation.donor,
+        }))
+      ),
+    [campaigns]
+  );
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated || user?.role !== "association") {
+      setLoading(false);
+      setCampaigns([]);
+      setError("يجب تسجيل الدخول بحساب جمعية لعرض هذه الصفحة.");
+      return;
+    }
+
+    let ignore = false;
+
+    const loadCampaigns = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get("/associations/me/campaigns");
+        if (ignore) return;
+        setCampaigns((response.data || []).map(mapCampaignRow));
+      } catch (err) {
+        if (!ignore) {
+          setError(err?.response?.data?.error || "تعذر تحميل الحملات.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCampaigns();
+
+    return () => {
+      ignore = true;
+    };
+  }, [authLoading, isAuthenticated, user?.role]);
 
   // Called when CreateCampaignForm submits successfully
   const handleCampaignCreated = (newCampaign) => {
@@ -137,7 +169,8 @@ export default function AssocCampaignsDashboardPage() {
 
         {/* ── Body ── */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <CampaignsDashboardStats />
+          <CampaignsDashboardStats stats={campaignStats} />
+          <AssociationActivityPanel donations={recentDonations} />
 
           {/* Create campaign form (toggle) */}
           {showCreateForm && (
@@ -147,11 +180,39 @@ export default function AssocCampaignsDashboardPage() {
             />
           )}
 
-          <CampaignsTable campaigns={campaigns} setCampaigns={setCampaigns} />
+          {error ? <div className="empty-state"><h3>No records found</h3><p>{error}</p></div> : null}
+          {!error ? (
+            <CampaignsTable campaigns={campaigns} setCampaigns={setCampaigns} loading={loading} />
+          ) : null}
         </div>
       </main>
 
       <DashboardFooter />
     </div>
   );
+}
+
+function mapCampaignRow(campaign) {
+  const raised = Number(campaign.current_amount || 0);
+  const goal = Number(campaign.goal_amount || 0);
+  const progress = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+  const donationUserIds = Array.isArray(campaign.donations)
+    ? campaign.donations.map((donation) => donation.user_id)
+    : [];
+  const donors = new Set(donationUserIds.filter(Boolean)).size;
+
+  return {
+    id: campaign.id,
+    title: campaign.title,
+    image: campaign.image_url,
+    imageEmoji: "🍱",
+    donors,
+    donationUserIds,
+    raised,
+    goal,
+    progress,
+    status: progress >= 100 ? "مكتملة" : "نشطة",
+    statusColor: progress >= 100 ? "blue" : "green",
+    createdAt: campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString("ar-DZ") : "الآن",
+  };
 }

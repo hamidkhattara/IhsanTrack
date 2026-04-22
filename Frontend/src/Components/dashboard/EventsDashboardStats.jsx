@@ -27,46 +27,46 @@
  * In production: GET /api/associations/me/events/stats
  */
 
-const stats = [
-  {
-    id: 1,
-    icon: "📅",
-    iconBg: "bg-blue-900/40 border-blue-800/40",
-    label: "الفعاليات المنشئة",
-    value: "12",
-    badge: null,
-    badgeColor: "",
-    badgeIcon: "",
-    valueColor: "text-white",
-  },
-  {
-    id: 2,
-    icon: "🤝",
-    iconBg: "bg-green-900/40 border-green-800/40",
-    label: "إجمالي المتطوعين المسجلين",
-    value: "450",
-    badge: "+95% زيادة",
-    badgeColor: "text-green-400 bg-green-900/30 border-green-800/40",
-    badgeIcon: "↑",
-    valueColor: "text-white",
-  },
-  {
-    id: 3,
-    icon: "🏃",
-    iconBg: "bg-orange-900/40 border-orange-800/40",
-    label: "الفعاليات القادمة",
-    value: "85",
-    badge: "-45% انخفاض",
-    badgeColor: "text-red-400 bg-red-900/30 border-red-800/40",
-    badgeIcon: "↓",
-    valueColor: "text-white",
-  },
-];
+export default function EventsDashboardStats({ stats }) {
+  const cards = [
+    {
+      id: 1,
+      icon: "📅",
+      iconBg: "bg-blue-900/40 border-blue-800/40",
+      label: "الفعاليات المنشئة",
+      value: String(stats?.eventCount || 0),
+      badge: null,
+      badgeColor: "",
+      badgeIcon: "",
+      valueColor: "text-white",
+    },
+    {
+      id: 2,
+      icon: "🤝",
+      iconBg: "bg-green-900/40 border-green-800/40",
+      label: "إجمالي طلبات المتطوعين",
+      value: String(stats?.totalVolunteerRequests || 0),
+      badge: `${stats?.acceptedVolunteers || 0} مقبول`,
+      badgeColor: "text-green-400 bg-green-900/30 border-green-800/40",
+      badgeIcon: "•",
+      valueColor: "text-white",
+    },
+    {
+      id: 3,
+      icon: "🏃",
+      iconBg: "bg-orange-900/40 border-orange-800/40",
+      label: "الفعاليات القادمة",
+      value: String(stats?.upcomingEvents || 0),
+      badge: `${stats?.activeEvents || 0} فعالية نشطة`,
+      badgeColor: "text-orange-300 bg-orange-900/30 border-orange-800/40",
+      badgeIcon: "•",
+      valueColor: "text-white",
+    },
+  ];
 
-export default function EventsDashboardStats() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {stats.map((stat) => (
+      {cards.map((stat) => (
         <StatCard key={stat.id} stat={stat} />
       ))}
     </div>

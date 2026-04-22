@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AssocDashboardNavbar from "../Components/dashboard/AssocDashboardNavbar";
 import DashboardFooter from "../Components/dashboard/DashboardFooter";
+import AssociationActivityPanel from "../Components/dashboard/AssociationActivityPanel";
 import EventsDashboardStats from "../Components/dashboard/EventsDashboardStats";
 import CreateEventForm from "../Components/dashboard/CreateEventForm";
 import EventsTable from "../Components/dashboard/EventsTable";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * AssocEventsDashboardPage.jsx
@@ -48,76 +51,94 @@ import EventsTable from "../Components/dashboard/EventsTable";
  *   DELETE /api/events/:id/volunteers/:userId   → remove a volunteer
  */
 
-// ── Mock events data ─────────────────────────────────────────────────────────
-const mockEvents = [
-  {
-    id: 1,
-    title: "قفة رمضان 2024",
-    image: null,
-    imageEmoji: "🍱",
-    volunteers: 45,
-    maxVolunteers: 100,
-    raised: 150000,
-    goal: 500000,
-    progress: 70,
-    status: "نشطة",
-    statusColor: "green",
-    createdAt: "قبل 45 يوم",
-    category: "غذاء",
-  },
-  {
-    id: 2,
-    title: "حقيبة مدرسية للأيتام",
-    image: null,
-    imageEmoji: "🎒",
-    volunteers: 124,
-    maxVolunteers: 200,
-    raised: 450000,
-    goal: 700000,
-    progress: 64,
-    status: "انتظار",
-    statusColor: "yellow",
-    createdAt: "قبل 12 يوم",
-    category: "تعليم",
-  },
-  {
-    id: 3,
-    title: "كسوة الشتاء",
-    image: null,
-    imageEmoji: "🧥",
-    volunteers: 6,
-    maxVolunteers: 50,
-    raised: 800000,
-    goal: 800000,
-    progress: 100,
-    status: "مكتملة",
-    statusColor: "blue",
-    createdAt: "قبل 3 أيام",
-    category: "إغاثة",
-  },
-];
-
-// ── Mock volunteers per event ─────────────────────────────────────────────────
-const mockVolunteers = {
-  1: [
-    { id: 101, name: "أحمد بن علي", phone: "+213 550 123 456", wilaya: "الجزائر", joinedAt: "منذ يومين", avatar: "أ" },
-    { id: 102, name: "فاطمة الزهراء", phone: "+213 661 234 567", wilaya: "وهران", joinedAt: "منذ 3 أيام", avatar: "ف" },
-    { id: 103, name: "يوسف مرابط", phone: "+213 770 345 678", wilaya: "قسنطينة", joinedAt: "منذ 5 أيام", avatar: "ي" },
-  ],
-  2: [
-    { id: 201, name: "سارة بوعلام", phone: "+213 550 456 789", wilaya: "عنابة", joinedAt: "منذ يوم", avatar: "س" },
-    { id: 202, name: "كريم لعقاب", phone: "+213 660 567 890", wilaya: "سطيف", joinedAt: "منذ 4 أيام", avatar: "ك" },
-  ],
-  3: [
-    { id: 301, name: "نور الهدى", phone: "+213 771 678 901", wilaya: "تيزي وزو", joinedAt: "منذ أسبوع", avatar: "ن" },
-  ],
-};
-
 export default function AssocEventsDashboardPage() {
+  const { user, isAuthenticated, authLoading } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [events, setEvents] = useState(mockEvents);
+  const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null); // for volunteers drawer
-  const [volunteers, setVolunteers] = useState(mockVolunteers);
+  const [volunteers, setVolunteers] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const eventStats = useMemo(() => {
+    const now = Date.now();
+    const upcomingEvents = events.filter((event) => {
+      const start = event.startDateValue || 0;
+      return start > now;
+    }).length;
+    const activeEvents = events.filter((event) => event.status === "نشطة").length;
+    const totalVolunteerRequests = Object.values(volunteers).reduce(
+      (sum, eventVolunteers) => sum + eventVolunteers.length,
+      0
+    );
+    const acceptedVolunteers = Object.values(volunteers)
+      .flat()
+      .filter((volunteer) => volunteer.status === "accepted").length;
+
+    return {
+      eventCount: events.length,
+      upcomingEvents,
+      activeEvents,
+      totalVolunteerRequests,
+      acceptedVolunteers,
+    };
+  }, [events, volunteers]);
+
+  const recentRequests = useMemo(
+    () =>
+      events.flatMap((event) =>
+        (volunteers[event.id] || []).map((volunteer) => ({
+          id: volunteer.id,
+          name: volunteer.name,
+          registered_at: volunteer.joinedAt,
+          status: volunteer.status,
+          eventTitle: event.title,
+          event: { title: event.title },
+        }))
+      ),
+    [events, volunteers]
+  );
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated || user?.role !== "association") {
+      setLoading(false);
+      setEvents([]);
+      setVolunteers({});
+      setError("يجب تسجيل الدخول بحساب جمعية لعرض هذه الصفحة.");
+      return;
+    }
+
+    let ignore = false;
+
+    const loadEvents = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get("/associations/me/events");
+        if (ignore) return;
+        const rawEvents = response.data || [];
+        const mappedEvents = rawEvents.map(mapEventRow);
+        setEvents(mappedEvents);
+        setVolunteers(buildVolunteerMap(rawEvents));
+      } catch (err) {
+        if (!ignore) {
+          setError(err?.response?.data?.error || "تعذر تحميل الفعاليات.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadEvents();
+
+    return () => {
+      ignore = true;
+    };
+  }, [authLoading, isAuthenticated, user?.role]);
 
   const handleEventCreated = (newEvent) => {
     setEvents((prev) => [newEvent, ...prev]);
@@ -172,7 +193,8 @@ export default function AssocEventsDashboardPage() {
 
         {/* ── Body ── */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <EventsDashboardStats />
+          <EventsDashboardStats stats={eventStats} />
+          <AssociationActivityPanel requests={recentRequests} />
 
           {showCreateForm && (
             <CreateEventForm
@@ -181,18 +203,75 @@ export default function AssocEventsDashboardPage() {
             />
           )}
 
-          <EventsTable
-            events={events}
-            setEvents={setEvents}
-            volunteers={volunteers}
-            selectedEvent={selectedEvent}
-            setSelectedEvent={setSelectedEvent}
-            onRemoveVolunteer={handleRemoveVolunteer}
-          />
+          {error ? <div className="empty-state"><h3>No records found</h3><p>{error}</p></div> : null}
+          {!error ? (
+            <EventsTable
+              events={events}
+              setEvents={setEvents}
+              volunteers={volunteers}
+              selectedEvent={selectedEvent}
+              setSelectedEvent={setSelectedEvent}
+              onRemoveVolunteer={handleRemoveVolunteer}
+              loading={loading}
+            />
+          ) : null}
         </div>
       </main>
 
       <DashboardFooter />
     </div>
   );
+}
+
+function mapEventRow(event) {
+  const maxVolunteers = Number(event.max_participants || 0);
+  const volunteers = Number(event.spots_taken || 0);
+  const progress = maxVolunteers > 0 ? Math.min(100, Math.round((volunteers / maxVolunteers) * 100)) : 0;
+
+  const now = Date.now();
+  const start = event.start_date ? new Date(event.start_date).getTime() : now;
+  const end = event.end_date ? new Date(event.end_date).getTime() : now;
+
+  let status = "انتظار";
+  if (end < now || progress >= 100) status = "مكتملة";
+  else if (start <= now && end >= now) status = "نشطة";
+
+  return {
+    id: event.id,
+    title: event.title,
+    image: event.image_url,
+    imageEmoji: "📅",
+    volunteers,
+    maxVolunteers,
+    raised: volunteers,
+    goal: maxVolunteers,
+    progress,
+    status,
+    statusColor: status === "نشطة" ? "green" : status === "مكتملة" ? "blue" : "yellow",
+    createdAt: event.createdAt ? new Date(event.createdAt).toLocaleDateString("ar-DZ") : "الآن",
+    category: event.age_range || "عام",
+    startDateValue: start,
+    endDateValue: end,
+  };
+}
+
+function buildVolunteerMap(events) {
+  return events.reduce((accumulator, event) => {
+    const eventVolunteers = Array.isArray(event.volunteers)
+      ? event.volunteers.map((volunteer) => ({
+          id: volunteer.id,
+          name: volunteer.full_name || "مستخدم",
+          phone: volunteer.phone || "غير متوفر",
+          wilaya: event.location_wilaya || "غير محدد",
+          joinedAt: volunteer.VolunteersRegistry?.registered_at
+            ? new Date(volunteer.VolunteersRegistry.registered_at).toLocaleDateString("ar-DZ")
+            : "غير محدد",
+          avatar: (volunteer.full_name || "م").charAt(0),
+          status: volunteer.VolunteersRegistry?.status || "pending",
+        }))
+      : [];
+
+    accumulator[event.id] = eventVolunteers;
+    return accumulator;
+  }, {});
 }

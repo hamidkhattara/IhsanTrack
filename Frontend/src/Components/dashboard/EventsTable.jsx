@@ -64,6 +64,17 @@ export default function EventsTable({
   const [page, setPage] = useState(1);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  if (!events || events.length === 0) {
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center empty-state">
+        <h3 className="text-white text-lg font-bold">No records found</h3>
+        <p className="text-gray-400 text-sm mt-2">
+          You haven't created any campaigns/events yet. Click "Create" to start!
+        </p>
+      </div>
+    );
+  }
+
   const filtered = activeTab === "الجميع"
     ? events
     : events.filter((e) => e.status === activeTab);

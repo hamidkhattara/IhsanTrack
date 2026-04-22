@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import DonationModal from "./DonationModal";
+import DonationActionModal from "./DonationActionModal";
+import useCampaigns from "../hooks/useCampaigns";
 
 /**
  * FeaturedCampaigns.jsx  (updated)
@@ -17,74 +18,37 @@ import DonationModal from "./DonationModal";
  *   onClose()                  → resets selectedCampaign to null
  */
 
-const mockCampaigns = [
-  {
-    id: 1,
-    title: "سقيا الماء للأسر المحتاجة",
-    association: "جمعية الرحمة",
-    assocId: 1,
-    category: "صحة",
-    categoryColor: "bg-red-600",
-    raised: 50000,
-    goal: 100000,
-    donors: 124,
-    daysLeft: 12,
-    urgent: true,
-    image: null,
-    imageEmoji: "💧",
-    description:
-      "يهدف هذا المشروع إلى حفر آبار ارتوازية وتوصيل شبكات المياه للمناطق التي تعاني من الجفاف في ولايات الجنوب والداخل الجزائري. نسعى لتوفير مياه مستدامة ونظيفة لمئات العائلات التي تقطع مسافات طويلة للحصول على الماء. مساهمتكم تضمن حياة كريمة وصحة أفضل للأطفال وكبار السن.",
-    recentDonors: [
-      { id: 1, name: "أحمد محمد",       amount: 1000, timeAgo: "منذ 5 دقائق",  avatar: "أ", anonymous: false },
-      { id: 2, name: "متبرع فاعل خير",  amount: 2500, timeAgo: "منذ 12 دقيقة", avatar: "م", anonymous: true  },
-    ],
-  },
-  {
-    id: 2,
-    title: "شفاء طبي للأطفال",
-    association: "مؤسسة الأمل",
-    assocId: 2,
-    category: "أطفال",
-    categoryColor: "bg-blue-600",
-    raised: 87000,
-    goal: 200000,
-    donors: 198,
-    daysLeft: 8,
-    urgent: true,
-    image: null,
-    imageEmoji: "👶",
-    description:
-      "توفير العلاج الطبي والدعم النفسي للأطفال المصابين بأمراض مزمنة في المستشفيات العمومية، وتأمين الأدوية اللازمة للعائلات التي لا تستطيع تحمل تكاليف العلاج.",
-    recentDonors: [
-      { id: 1, name: "فاطمة الزهراء", amount: 3000, timeAgo: "منذ 8 دقائق",  avatar: "ف", anonymous: false },
-      { id: 2, name: "متبرع كريم",     amount: 500,  timeAgo: "منذ 20 دقيقة", avatar: "م", anonymous: true  },
-    ],
-  },
-  {
-    id: 3,
-    title: "حقيبة مدرسية للطلاب",
-    association: "جمعية التعليم",
-    assocId: 3,
-    category: "تعليم",
-    categoryColor: "bg-yellow-600",
-    raised: 210000,
-    goal: 250000,
-    donors: 540,
-    daysLeft: 5,
-    urgent: false,
-    image: null,
-    imageEmoji: "📚",
-    description:
-      "توفير الأدوات والمستلزمات المدرسية لأكثر من 500 طالب في المناطق النائية، لضمان حقهم في التعليم دون عوائق مادية.",
-    recentDonors: [
-      { id: 1, name: "يوسف مرابط", amount: 1500, timeAgo: "منذ 3 دقائق",  avatar: "ي", anonymous: false },
-      { id: 2, name: "نور الهدى",  amount: 2000, timeAgo: "منذ 15 دقيقة", avatar: "ن", anonymous: false },
-    ],
-  },
-];
+const formatCurrency = (value) => new Intl.NumberFormat("ar-DZ").format(Number(value || 0));
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ar-DZ", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+};
 
 export default function FeaturedCampaigns() {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const { campaigns, loading, error } = useCampaigns();
+  const featuredCampaigns = (campaigns || []).slice(0, 3).map((campaign) => ({
+    ...campaign,
+    association: campaign.association?.name || campaign.association?.user?.full_name || "جمعية غير محددة",
+    assocId: campaign.association?.id || campaign.association_id,
+    raised: Number(campaign.current_amount || campaign.raised || 0),
+    goal: Number(campaign.goal_amount || campaign.goal || 0),
+    donors: Number(campaign.donors || campaign.donor_count || 0),
+    daysLeft: campaign.max_date ? Math.max(0, Math.ceil((new Date(campaign.max_date) - new Date()) / (1000 * 60 * 60 * 24))) : 0,
+    urgent: Boolean(campaign.urgent),
+    image: campaign.image_url || campaign.coverImage || campaign.image,
+    imageEmoji: campaign.imageEmoji || "💚",
+    category: campaign.category || "حملة",
+    categoryColor: "bg-green-600",
+    recentDonors: campaign.recentDonors,
+  }));
 
   return (
     <section className="py-16 bg-gray-950">
@@ -102,18 +66,34 @@ export default function FeaturedCampaigns() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockCampaigns.map((campaign) => (
-            <CampaignCard
-              key={campaign.id}
-              campaign={campaign}
-              onDonate={() => setSelectedCampaign(campaign)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-96 rounded-2xl border border-gray-800 bg-gray-900 animate-pulse" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-right text-red-300">
+            {error}
+          </div>
+        ) : featuredCampaigns.length === 0 ? (
+          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-8 text-center text-gray-400">
+            لا توجد حملات مميزة حالياً.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onDonate={() => setSelectedCampaign(campaign)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <DonationModal
+      <DonationActionModal
         campaign={selectedCampaign}
         onClose={() => setSelectedCampaign(null)}
       />
@@ -122,11 +102,12 @@ export default function FeaturedCampaigns() {
 }
 
 function CampaignCard({ campaign, onDonate }) {
-  const progressPercent = Math.round((campaign.raised / campaign.goal) * 100);
+  const progressPercent = campaign.goal > 0 ? Math.round((campaign.raised / campaign.goal) * 100) : 0;
+  const deadline = formatDate(campaign.max_date || campaign.end_date || campaign.deadline);
 
   return (
     <div className="bg-gray-900 border border-gray-800 hover:border-green-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-950/40 group">
-      <div className="relative h-44 bg-gradient-to-br from-green-950 to-gray-800 flex items-center justify-center overflow-hidden">
+      <div className="relative h-44 bg-linear-to-br from-green-950 to-gray-800 flex items-center justify-center overflow-hidden">
         {campaign.image ? (
           <img src={campaign.image} alt={campaign.title} className="w-full h-full object-cover" />
         ) : (
@@ -140,6 +121,11 @@ function CampaignCard({ campaign, onDonate }) {
         <div className={`absolute top-3 left-3 ${campaign.categoryColor} text-white text-xs font-medium px-2 py-1 rounded-full`}>
           {campaign.category}
         </div>
+        {deadline ? (
+          <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[11px] font-medium px-2 py-1 rounded-full backdrop-blur-sm">
+            {deadline}
+          </div>
+        ) : null}
       </div>
 
       <div className="p-5 text-right">
@@ -152,10 +138,10 @@ function CampaignCard({ campaign, onDonate }) {
         <div className="mb-3">
           <div className="flex justify-between text-xs text-gray-400 mb-1.5">
             <span className="text-green-400 font-semibold">{progressPercent}%</span>
-            <span>{campaign.raised.toLocaleString("ar-DZ")} دج / {campaign.goal.toLocaleString("ar-DZ")} دج</span>
+            <span>{formatCurrency(campaign.raised)} دج / {formatCurrency(campaign.goal)} دج</span>
           </div>
           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-l from-green-500 to-green-700 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
+            <div className="h-full bg-linear-to-l from-green-500 to-green-700 rounded-full transition-all duration-700" style={{ width: `${progressPercent}%` }} />
           </div>
         </div>
         <div className="flex items-center justify-between text-xs text-gray-500 mb-4">

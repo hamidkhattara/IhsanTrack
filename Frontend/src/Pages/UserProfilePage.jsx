@@ -6,6 +6,7 @@ import UserActivityTabs from "../Components/user/UserActivityTabs";
 import UserFooter from "../Components/user/UserFooter";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { fileToDataUrl } from "../utils/fileToDataUrl";
 
 function formatDate(value) {
   if (!value) return "غير محدد";
@@ -54,6 +55,7 @@ export default function UserProfilePage() {
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -75,6 +77,7 @@ export default function UserProfilePage() {
         setDonations(donationsRes.data || []);
         setEvents(eventsRes.data || []);
         setAvatarUrl(profileRes.data?.avatar_url || "");
+        setAvatarPreview(profileRes.data?.avatar_url || "");
       } catch (err) {
         if (!ignore) {
           setError(err?.response?.data?.error || "تعذر تحميل بيانات الملف الشخصي.");
@@ -124,6 +127,15 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleAvatarFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const dataUrl = await fileToDataUrl(file);
+    setAvatarUrl(dataUrl);
+    setAvatarPreview(dataUrl);
+  };
+
   return (
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">
       <Navbar />
@@ -153,17 +165,19 @@ export default function UserProfilePage() {
           <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-6 text-right">
             <h2 className="text-xl font-bold mb-2">تغيير الصورة الشخصية</h2>
             <p className="text-sm text-gray-400 mb-4">
-              ضع رابط الصورة الجديدة. إذا تركته فارغاً سيظهر أول حرف من اسمك تلقائياً.
+              اختر صورة من جهازك. إذا تركت الحقل فارغاً سيظهر أول حرف من اسمك تلقائياً.
             </p>
 
-            <label className="text-sm text-gray-300">رابط الصورة</label>
-            <input
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
-              className="mt-2 w-full h-10 px-3 text-sm text-white border border-gray-700 rounded-md bg-transparent"
-            />
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-700 bg-gray-950/60 px-4 py-5 text-center hover:border-green-500 transition-colors">
+              <span className="text-2xl">🖼️</span>
+              <span className="text-sm text-gray-300">اختر صورة من الجهاز</span>
+              <span className="text-xs text-gray-500">PNG, JPG, WEBP</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+            </label>
+
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="معاينة الصورة الشخصية" className="mt-4 mx-auto h-24 w-24 rounded-full object-cover border border-gray-800" />
+            ) : null}
 
             {error ? <p className="text-red-400 text-sm mt-3">{error}</p> : null}
 

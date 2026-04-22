@@ -120,17 +120,30 @@ export default function EventRegistrationModal({ event, onClose }) {
   if (!event) return null;
 
   // ── Default values (fallback if event data is incomplete) ──────────────────
-  const seatsLeft  = event.seatsLeft  ?? 12;
-  const date       = event.date       ?? "15 أكتوبر 2023";
-  const time       = event.time       ?? "9:00 صباحاً";
-  const location   = event.location   ?? "جبال الأطلس المتوسط، المغرب";
-  const mapsLink   = event.mapsLink   ?? `https://maps.google.com/?q=${encodeURIComponent(location)}`;
-  const notes      = event.notes      ?? [
+  const maxParticipants = Number(event.max_participants ?? event.maxParticipants ?? 12);
+  const spotsTaken = Number(event.spots_taken ?? event.spotsTaken ?? 0);
+  const seatsLeft  = event.seatsLeft ?? Math.max(0, maxParticipants - spotsTaken);
+  const startDate  = event.start_date ?? event.date ?? "15 أكتوبر 2023";
+  const endDate    = event.end_date ?? event.date ?? "15 أكتوبر 2023";
+  const location   = event.location_wilaya ?? event.location ?? "جبال الأطلس المتوسط، المغرب";
+  const mapsLink   = event.location_maps_link ?? event.mapsLink ?? `https://maps.google.com/?q=${encodeURIComponent(location)}`;
+  const coverImage = event.coverImage ?? event.image_url ?? event.image;
+  const description = event.description ?? "فعالية تطوعية تهدف إلى جمع المشاركين حول مبادرة مجتمعية مفيدة ومؤثرة.";
+  const ageRange   = event.age_range ?? event.ageRange;
+  const association = event.association?.name ?? event.associationName ?? "جمعية أطلس الخضراء";
+  const assocId = event.assocId ?? event.association?.id;
+  const time = formatEventTime(startDate);
+  const notes      = event.notes ?? [
     "أحذية مريحة مخصصة للمشي الجبلي",
     "قارورة ماء قابلة لإعادة التعبئة",
     "قفازات عمل وقبعة للحماية من الشمس",
   ];
-  const assocName  = event.association ?? "جمعية أطلس الخضراء";
+  const details = [
+    { label: "التاريخ", value: formatEventDate(startDate) },
+    { label: "الوقت", value: time },
+    { label: "المقاعد", value: `${spotsTaken} / ${maxParticipants}` },
+    { label: "حتى", value: formatEventDate(endDate) },
+  ];
 
   // ── Registration handler ────────────────────────────────────────────────────
   const handleRegister = async () => {
@@ -145,7 +158,7 @@ export default function EventRegistrationModal({ event, onClose }) {
     /* ── Backdrop ── */
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       dir="rtl"
     >
@@ -156,14 +169,14 @@ export default function EventRegistrationModal({ event, onClose }) {
         {/* SECTION 1 — HERO IMAGE                             */}
         {/* ════════════════════════════════════════════════════ */}
         <div className="relative h-52 shrink-0 overflow-hidden">
-          {event.coverImage ? (
+          {coverImage ? (
             <img
-              src={event.coverImage}
+              src={coverImage}
               alt={event.title}
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-green-800 via-green-900 to-gray-900 flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-green-800 via-green-900 to-gray-900 flex items-center justify-center">
               <span className="text-8xl opacity-30 select-none">{event.imageEmoji ?? "🌱"}</span>
               {/* dot pattern */}
               <div
@@ -177,7 +190,21 @@ export default function EventRegistrationModal({ event, onClose }) {
           )}
 
           {/* Subtle bottom gradient */}
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-950/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-gray-950/60 to-transparent" />
+
+          {seatsLeft > 0 && (
+            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-green-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+              <span>👥</span>
+              <span>{seatsLeft} مقعداً متبقياً</span>
+            </div>
+          )}
+
+          {seatsLeft === 0 && (
+            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+              <span>⚠️</span>
+              <span>المقاعد ممتلئة</span>
+            </div>
+          )}
 
           {/* ✕ Close button — top left (RTL layout) */}
           <button
@@ -217,36 +244,32 @@ export default function EventRegistrationModal({ event, onClose }) {
                   {event.title}
                 </h2>
                 <a
-                  href={`/associations/${event.assocId}`}
+                  href={assocId ? `/associations/${assocId}` : "#"}
                   className="inline-flex items-center gap-1.5 text-green-400 hover:text-green-300 text-sm font-medium transition-colors"
                 >
                   <span>📍</span>
-                  <span>برواسطة {assocName}</span>
+                  <span>بواسطة {association}</span>
                 </a>
+                <p className="text-gray-400 text-sm leading-relaxed mt-3 text-right">
+                  {description}
+                </p>
               </div>
 
-              {/* ── SECTION 3 — DATE / TIME CARDS ── */}
+              {/* ── SECTION 3 — QUICK DETAILS ── */}
               <div className="px-5 pt-4 pb-3 grid grid-cols-2 gap-3">
-                {/* Time card */}
-                <InfoCard
-                  label="الوقت"
-                  value={time}
-                  icon={
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-                    </svg>
-                  }
-                />
-                {/* Date card */}
-                <InfoCard
-                  label="التاريخ"
-                  value={date}
-                  icon={
-                    <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-                    </svg>
-                  }
-                />
+                {details.map((item) => (
+                  <InfoCard
+                    key={item.label}
+                    label={item.label}
+                    value={item.value}
+                    icon={
+                      <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                    }
+                  />
+                ))}
               </div>
 
               {/* ── SECTION 4 — LOCATION CARD ── */}
@@ -378,6 +401,31 @@ export default function EventRegistrationModal({ event, onClose }) {
       </div>
     </div>
   );
+}
+
+function formatEventDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ar-DZ", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatEventTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "غير محدد";
+  }
+
+  return new Intl.DateTimeFormat("ar-DZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 /* ── InfoCard helper ── */

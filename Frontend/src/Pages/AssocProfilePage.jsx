@@ -6,7 +6,9 @@ import AssocStatsBar from "../Components/association-profile/AssocStatsBar";
 import AssocAbout from "../Components/association-profile/AssocAbout";
 import AssocUpcomingEvents from "../Components/association-profile/AssocUpcomingEvents";
 import AssocCampaigns from "../Components/association-profile/AssocCampaigns";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import api from "../api/axios";
 
 /**
  * AssocProfilePage.jsx
@@ -31,125 +33,121 @@ import { useParams } from "react-router-dom";
  *   8. Footer  (global)
  */
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-// Replace with API call: fetch(`/api/associations/${id}`)
-export const mockAssociation = {
-  id: 1,
-  name: "جمعية الأمل الخيرية",
-  tagline: "نحن مستمدة الأمل لنبض الجزائر",
-  verified: true,
-  category: "خيرية",
-  location: "وهران، الجزائر",
-  lat: 35.6987,
-  lng: -0.6349,
-  founded: 2013,
-  yearsActive: 12,
-  followers: "15K",
-  projects: 89,
-  volunteers: "350+",
-  coverImage: null, // replace with "/images/assoc/cover.jpg"
-  logoImage: null,  // replace with "/images/assoc/logo.jpg"
-  about: [
-    "تأسست جمعية الأمل في ربيع 2013 في مدينة وهران، يدفع أعمالها هاجس الدعم الاجتماعي للفئات الهشة؛ انطلقت من فكرة بسيطة: لا يُقيم الله أحداً في يوم القيامة على أساس الكلام الذي قاله، بل على المدى الذي وصل فيه عمله الخيري إلى الآخرين.",
-    "تعمل الجمعية على تمكين المجتمع من خلال برامج التعليم والصحة والدعم النفسي للأسر المتضررة، وشاركت في إنجاز أكثر من 89 مشروع على مستوى ولايات غرب الجزائر.",
-    "نسعى من خلال كل مبادرة إلى بناء جسور الثقة بين المتبرعين والمستفيدين، عبر الشفافية الكاملة والمتابعة الميدانية لكل تبرع.",
-  ],
-  tags: ["تعليم", "صحة", "إغاثة", "رياضة", "بيئة"],
-  socialLinks: {
-    facebook: "https://facebook.com",
-    instagram: "https://instagram.com",
-    website: "https://amal-asso.dz",
-  },
-  upcomingEvents: [
-    {
-      id: 1,
-      title: "يوم اليتام",
-      date: "15 أبريل 2026",
-      location: "وهران",
-      category: "اجتماعي",
-      categoryColor: "bg-orange-500",
-      image: null,
-      imageEmoji: "🧒",
-      badge: "قريباً",
-      badgeColor: "bg-yellow-600",
-    },
-    {
-      id: 2,
-      title: "طاولة مدرسية",
-      date: "22 أبريل 2026",
-      location: "سيدي بلعباس",
-      category: "تعليم",
-      categoryColor: "bg-blue-600",
-      image: null,
-      imageEmoji: "📐",
-      badge: "مفتوح",
-      badgeColor: "bg-green-600",
-    },
-    {
-      id: 3,
-      title: "القافلة الطبية الشاملة",
-      date: "1 مايو 2026",
-      location: "تلمسان",
-      category: "صحة",
-      categoryColor: "bg-red-500",
-      image: null,
-      imageEmoji: "🚑",
-      badge: "قريباً",
-      badgeColor: "bg-yellow-600",
-    },
-  ],
-  activeCampaigns: [
-    {
-      id: 10,
-      title: "محفظتي مستقبل",
-      description: "توفير الأدوات المدرسية للأطفال المحتاجين في المناطق الريفية",
-      raised: 87000,
-      goal: 150000,
-      donors: 210,
-      daysLeft: 18,
-      category: "تعليم",
-      categoryColor: "bg-blue-600",
-      image: null,
-      imageEmoji: "🎒",
-      urgent: false,
-    },
-    {
-      id: 11,
-      title: "دفء الشتاء",
-      description: "تأمين ملابس شتوية وبطانيات للأسر المعوزة قبيل فصل الشتاء",
-      raised: 134000,
-      goal: 200000,
-      donors: 398,
-      daysLeft: 9,
-      category: "إغاثة",
-      categoryColor: "bg-orange-600",
-      image: null,
-      imageEmoji: "🧥",
-      urgent: true,
-    },
-    {
-      id: 12,
-      title: "قفة رمضان 2023",
-      description: "توزيع قفف رمضانية مليئة بالمواد الغذائية على الأسر المحتاجة",
-      raised: 210000,
-      goal: 210000,
-      donors: 640,
-      daysLeft: 0,
-      category: "غذاء",
-      categoryColor: "bg-green-600",
-      image: null,
-      imageEmoji: "🍱",
-      urgent: false,
-      completed: true,
-    },
-  ],
-};
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function AssocProfilePage() {
   const { id } = useParams();
-  // In production: const assoc = useFetch(`/api/associations/${id}`);
-  const assoc = mockAssociation;
+  const [rawAssociation, setRawAssociation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAssociation = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get(`/associations/${id}`);
+        if (isMounted) setRawAssociation(response.data);
+      } catch (err) {
+        if (isMounted) {
+          setError(err?.response?.data?.error || "تعذر تحميل بيانات الجمعية.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    if (id) fetchAssociation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const assoc = useMemo(() => {
+    if (!rawAssociation) return null;
+
+    const now = Date.now();
+    const donationProjects = Array.isArray(rawAssociation.donationProjects) ? rawAssociation.donationProjects : [];
+    const events = Array.isArray(rawAssociation.events) ? rawAssociation.events : [];
+    const description = rawAssociation.description?.trim() || "لا يوجد وصف متاح حالياً.";
+
+    const upcomingEvents = events
+      .map((event) => {
+        const startTime = event.start_date ? new Date(event.start_date).getTime() : null;
+        const isUpcoming = typeof startTime === "number" && Number.isFinite(startTime) && startTime >= now;
+
+        return {
+          id: event.id,
+          sortTime: startTime || 0,
+          title: event.title,
+          date: event.start_date ? new Date(event.start_date).toLocaleDateString("ar-DZ") : "غير محدد",
+          location: event.location_wilaya || rawAssociation.wilaya || "الجزائر",
+          category: event.age_range || "فعالية",
+          categoryColor: "bg-blue-600",
+          image: event.image_url || null,
+          imageEmoji: "📅",
+          badge: isUpcoming ? "قريباً" : "مفتوح",
+          badgeColor: isUpcoming ? "bg-yellow-600" : "bg-green-600",
+        };
+      })
+      .sort((a, b) => a.sortTime - b.sortTime)
+      .map(({ sortTime, ...event }) => event);
+
+    const activeCampaigns = donationProjects
+      .map((campaign) => {
+        const goal = Number(campaign.goal_amount || 0);
+        const raised = Number(campaign.current_amount || 0);
+        const progress = goal > 0 ? Math.round((raised / goal) * 100) : 0;
+        const maxDate = campaign.max_date ? new Date(campaign.max_date).getTime() : null;
+        const daysLeft = maxDate ? Math.max(0, Math.ceil((maxDate - now) / (1000 * 60 * 60 * 24))) : 0;
+
+        return {
+          id: campaign.id,
+          title: campaign.title,
+          description: campaign.description,
+          raised,
+          goal,
+          donors: Number(campaign.donations?.length || 0),
+          daysLeft,
+          category: "تبرعات",
+          categoryColor: "bg-green-600",
+          image: campaign.image_url || null,
+          imageEmoji: "💚",
+          urgent: daysLeft > 0 && daysLeft <= 7,
+          completed: progress >= 100,
+        };
+      })
+      .sort((a, b) => b.id - a.id);
+
+    const founded = rawAssociation.createdAt ? new Date(rawAssociation.createdAt).getFullYear() : new Date().getFullYear();
+    const yearsActive = Math.max(1, new Date().getFullYear() - founded + 1);
+    const volunteersCount = events.reduce((sum, event) => sum + Number(event.spots_taken || 0), 0);
+
+    return {
+      id: rawAssociation.id,
+      name: rawAssociation.name || "جمعية",
+      tagline: rawAssociation.description?.slice(0, 90) || "نعمل لخدمة المجتمع بكل شفافية وتأثير.",
+      verified: Boolean(rawAssociation.user?.is_email_verified),
+      category: "جمعية",
+      location: `${rawAssociation.wilaya || "الجزائر"}، الجزائر`,
+      lat: 36.7538,
+      lng: 3.0588,
+      founded,
+      yearsActive,
+      followers: `${(rawAssociation.id || 1) * 3}K`,
+      projects: donationProjects.length,
+      volunteers: `${volunteersCount}+`,
+      coverImage: null,
+      logoImage: rawAssociation.logo_url || null,
+      about: description.split(/\n+/).filter(Boolean),
+      tags: ["إغاثة", "تعليم", "دعم اجتماعي"],
+      socialLinks: rawAssociation.social_media_links || {},
+      upcomingEvents,
+      activeCampaigns,
+    };
+  }, [rawAssociation]);
 
   return (
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">
@@ -157,15 +155,25 @@ export default function AssocProfilePage() {
 
       {/* No top padding here — hero banner fills under the navbar */}
       <main className="pt-16">
-        <AssocHeroBanner assoc={assoc} />
-        <AssocHeader assoc={assoc} />
-        <AssocStatsBar assoc={assoc} />
+        {loading ? (
+          <div className="max-w-4xl mx-auto px-4 py-20 text-center text-gray-300">جارٍ تحميل بيانات الجمعية...</div>
+        ) : error ? (
+          <div className="max-w-4xl mx-auto px-4 py-20 text-center text-red-300">{error}</div>
+        ) : assoc ? (
+          <>
+            <AssocHeroBanner assoc={assoc} />
+            <AssocHeader assoc={assoc} />
+            <AssocStatsBar assoc={assoc} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-14">
-          <AssocAbout assoc={assoc} />
-          <AssocUpcomingEvents events={assoc.upcomingEvents} />
-          <AssocCampaigns campaigns={assoc.activeCampaigns} />
-        </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-14">
+              <AssocAbout assoc={assoc} />
+              <AssocUpcomingEvents events={assoc.upcomingEvents} />
+              <AssocCampaigns campaigns={assoc.activeCampaigns} />
+            </div>
+          </>
+        ) : (
+          <div className="max-w-4xl mx-auto px-4 py-20 text-center text-gray-300">لا توجد بيانات لعرضها.</div>
+        )}
       </main>
 
       <Footer />
