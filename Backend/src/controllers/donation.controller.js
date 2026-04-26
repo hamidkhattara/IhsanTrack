@@ -26,6 +26,7 @@ export const createDonation = async (req, res) => {
     const donation = await Donation.create({
       ...req.body,
       user_id: req.user.id,
+      anonymous: Boolean(req.body.anonymous),
       date: new Date(),
     });
 
@@ -37,12 +38,20 @@ export const createDonation = async (req, res) => {
     const associationEmail = donationProject.association?.user?.email;
 
     if (associationEmail && donor) {
+      const isAnonymous = Boolean(req.body.anonymous);
+      const emailText = isAnonymous
+        ? `A new anonymous donation of ${req.body.amount} DZD was made to ${donationProject.title}.`
+        : `${donor.full_name} donated ${req.body.amount} DZD to ${donationProject.title}. Contact: ${donor.email} / ${donor.phone}`;
+      const emailHtml = isAnonymous
+        ? `<p>A new <strong>anonymous</strong> donation of <strong>${req.body.amount} DZD</strong> was made to <strong>${donationProject.title}</strong>.</p>`
+        : `<p><strong>${donor.full_name}</strong> donated <strong>${req.body.amount} DZD</strong> to <strong>${donationProject.title}</strong>.</p><p>Donor contact: ${donor.email} / ${donor.phone}</p>`;
+
       try {
         await sendEmail({
           to: associationEmail,
           subject: `New donation for ${donationProject.title}`,
-          text: `${donor.full_name} donated ${req.body.amount} DZD to ${donationProject.title}. Contact: ${donor.email} / ${donor.phone}`,
-          html: `<p><strong>${donor.full_name}</strong> donated <strong>${req.body.amount} DZD</strong> to <strong>${donationProject.title}</strong>.</p><p>Donor contact: ${donor.email} / ${donor.phone}</p>`,
+          text: emailText,
+          html: emailHtml,
         });
       } catch (emailErr) {
         console.error("Failed to send donation notification:", emailErr.message);
@@ -64,12 +73,19 @@ export const getAllDonations = async (req, res) => {
     const donations = await Donation.findAll({
       where,
       include: [
-        { model: User, as: "donor", attributes: ["id", "full_name", "email"] },
+        { model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] },
         { model: DonationProject, as: "donationProject", attributes: ["id", "title"] },
       ],
       order: [["date", "DESC"]],
     });
-    return res.json(donations);
+    const sanitized = donations.map((donation) => {
+      if (!donation.anonymous) return donation;
+      const json = donation.toJSON();
+      json.donor = null;
+      return json;
+    });
+
+    return res.json(sanitized);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -79,11 +95,18 @@ export const getDonationById = async (req, res) => {
   try {
     const donation = await Donation.findByPk(req.params.id, {
       include: [
-        { model: User, as: "donor", attributes: ["id", "full_name", "email"] },
+        { model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] },
         { model: DonationProject, as: "donationProject" },
       ],
     });
     if (!donation) return res.status(404).json({ error: "Donation not found" });
+
+    if (donation.anonymous) {
+      const json = donation.toJSON();
+      json.donor = null;
+      return res.json(json);
+    }
+
     return res.json(donation);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -94,7 +117,13 @@ export const getMyDonations = async (req, res) => {
   try {
     const donations = await Donation.findAll({
       where: { user_id: req.user.id },
-      include: [{ model: DonationProject, as: "donationProject", attributes: ["id", "title", "goal_amount", "current_amount"] }],
+      include: [
+        {
+          model: DonationProject,
+          as: "donationProject",
+          attributes: ["id", "title", "goal_amount", "current_amount"],
+        },
+      ],
       order: [["date", "DESC"]],
     });
     return res.json(donations);

@@ -26,12 +26,37 @@ export const getAssociationById = async (req, res) => {
     const association = await Association.findByPk(req.params.id, {
       include: [
         { model: User, as: "user", attributes: ["id", "full_name", "email", "is_email_verified"] },
-        { model: DonationProject, as: "donationProjects" },
+        {
+          model: DonationProject,
+          as: "donationProjects",
+          include: [
+            {
+              model: Donation,
+              as: "donations",
+              attributes: ["id", "amount", "date", "anonymous", "user_id", "payment_method"],
+              include: [{ model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] }],
+            },
+          ],
+        },
         { model: Event, as: "events" },
       ],
     });
     if (!association) return res.status(404).json({ error: "Association not found" });
-    return res.json(association);
+
+    const json = association.toJSON();
+    json.donationProjects = (json.donationProjects || []).map((project) => ({
+      ...project,
+      donations: (project.donations || []).map((donation) =>
+        donation.anonymous
+          ? {
+              ...donation,
+              donor: null,
+            }
+          : donation
+      ),
+    }));
+
+    return res.json(json);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -106,14 +131,27 @@ export const getMyCampaigns = async (req, res) => {
         {
           model: Donation,
           as: "donations",
-          attributes: ["id", "amount", "user_id", "date", "payment_method"],
+          attributes: ["id", "amount", "user_id", "date", "payment_method", "anonymous"],
           include: [{ model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] }],
         },
       ],
       order: [["createdAt", "DESC"]],
     });
 
-    return res.json(campaigns);
+    const sanitizedCampaigns = campaigns.map((campaign) => {
+      const json = campaign.toJSON();
+      json.donations = (json.donations || []).map((donation) =>
+        donation.anonymous
+          ? {
+              ...donation,
+              donor: null,
+            }
+          : donation
+      );
+      return json;
+    });
+
+    return res.json(sanitizedCampaigns);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

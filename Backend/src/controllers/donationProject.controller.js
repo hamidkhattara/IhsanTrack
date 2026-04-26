@@ -1,4 +1,4 @@
-import { DonationProject, Association, Donation } from "../models/index.js";
+import { DonationProject, Association, Donation, User } from "../models/index.js";
 
 export const createDonationProject = async (req, res) => {
   try {
@@ -26,7 +26,15 @@ export const getAllDonationProjects = async (req, res) => {
 
     const donationProjects = await DonationProject.findAll({
       where,
-      include: [{ model: Association, as: "association", attributes: ["id", "name", "wilaya"] }],
+      include: [
+        { model: Association, as: "association", attributes: ["id", "name", "wilaya"] },
+        {
+          model: Donation,
+          as: "donations",
+          attributes: ["id", "amount", "date", "anonymous", "user_id", "payment_method"],
+          include: [{ model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] }],
+        },
+      ],
     });
     return res.json(donationProjects);
   } catch (err) {
@@ -39,7 +47,12 @@ export const getDonationProjectById = async (req, res) => {
     const donationProject = await DonationProject.findByPk(req.params.id, {
       include: [
         { model: Association, as: "association" },
-        { model: Donation, as: "donations" },
+        {
+          model: Donation,
+          as: "donations",
+          attributes: ["id", "amount", "date", "anonymous", "user_id", "payment_method"],
+          include: [{ model: User, as: "donor", attributes: ["id", "full_name", "email", "phone"] }],
+        },
       ],
     });
     if (!donationProject) return res.status(404).json({ error: "Donation project not found" });

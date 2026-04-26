@@ -27,6 +27,11 @@ const Donation = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: false,
     },
+    anonymous: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     date: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

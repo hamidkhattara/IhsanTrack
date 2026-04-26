@@ -248,12 +248,13 @@ const updateApplicationStatus = async (req, res, status) => {
 
     const user = await User.findByPk(application.user_id);
     if (user?.email) {
-      const decisionWord = status === "accepted" ? "accepted" : "rejected";
+      const accepted = status === "accepted";
+      const decisionWord = accepted ? "approved" : "declined";
       await sendEmail({
         to: user.email,
-        subject: `IhsanTrack event application ${decisionWord}`,
-        text: `Your application for event \"${event.title}\" has been ${decisionWord}.`,
-        html: `<p>Your application for event <strong>${event.title}</strong> has been <strong>${decisionWord}</strong>.</p>`,
+        subject: `Update on your IhsanTrack event application: ${event.title}`,
+        text: `Dear ${user.full_name || "participant"},\n\nThank you for your interest in joining the event \"${event.title}\".\n\nAfter review, your participation request has been ${decisionWord}.\n\nIf you have any questions, please contact the organizing association through the platform.\n\nBest regards,\nIhsanTrack Team`,
+        html: `<p>Dear ${user.full_name || "participant"},</p><p>Thank you for your interest in joining the event <strong>${event.title}</strong>.</p><p>After review, your participation request has been <strong>${decisionWord}</strong>.</p><p>If you have any questions, please contact the organizing association through the platform.</p><p>Best regards,<br/>IhsanTrack Team</p>`,
       });
     }
 

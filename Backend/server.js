@@ -64,6 +64,22 @@ const widenImageColumns = async () => {
   await sequelize.query("ALTER TABLE events MODIFY image_url LONGTEXT NOT NULL");
 };
 
+const ensureDonationAnonymousColumn = async () => {
+  const [rows] = await sequelize.query(`
+    SELECT COLUMN_NAME
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'donations'
+      AND COLUMN_NAME = 'anonymous'
+  `);
+
+  if (!rows.length) {
+    await sequelize.query(
+      "ALTER TABLE donations ADD COLUMN anonymous TINYINT(1) NOT NULL DEFAULT 0 AFTER payment_method"
+    );
+  }
+};
+
 // ── Middleware ──
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "25mb" }));
@@ -104,6 +120,7 @@ const start = async () => {
     await sequelize.query("UPDATE users SET role = 'donor' WHERE role IN ('user', '') OR role IS NULL");
 
     await repairVolunteersRegistryEventFk();
+    await ensureDonationAnonymousColumn();
 
     // The database schema is managed explicitly to avoid Sequelize repeatedly
       await widenImageColumns();
