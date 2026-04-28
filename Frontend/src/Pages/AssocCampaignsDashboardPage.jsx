@@ -7,6 +7,7 @@ import CreateCampaignForm from "../Components/dashboard/CreateCampaignForm";
 import CampaignsTable from "../Components/dashboard/CampaignsTable";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import Footer from '../Components/Footer';
 
 /**
  * AssocCampaignsDashboardPage.jsx
@@ -152,10 +153,10 @@ export default function AssocCampaignsDashboardPage() {
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">
       <AssocDashboardNavbar activeTab="/dashboard/association/campaigns" />
 
-      <main className="pt-14">
+      <main className="pt-20">
 
         {/* ── Page Header ── */}
-        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-14 z-40">
+        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-20 z-40">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
 
@@ -211,7 +212,7 @@ export default function AssocCampaignsDashboardPage() {
         </div>
       </main>
 
-      <DashboardFooter />
+      <Footer />
     </div>
   );
 }

@@ -1,25 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import q from '../../assets/Icons/q.png'
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-
-/**
- * AssocDashboardNavbar.jsx
- *
- * USED ON: All association dashboard pages (edit profile, manage campaigns, manage events)
- * This is a SEPARATE navbar from the public Navbar.jsx
- *
- * CONTAINS:
- * - Logo (right, RTL) → links to public homepage "/"
- * - Three dashboard tabs (always visible):
- *     ملف الجمعية      → /dashboard/association/profile   (active on this page)
- *     إدارة الحملات   → /dashboard/association/campaigns
- *     إدارة الفعاليات → /dashboard/association/events
- * - Avatar / profile icon (left, RTL) → dropdown with logout
- *
- * ACTIVE TAB: detected via useLocation().pathname matching
- * The active tab gets a green underline + white text.
- */
 
 const dashboardTabs = [
   { label: "ملف الجمعية",     path: "/dashboard/association/profile" },
@@ -30,50 +12,101 @@ const dashboardTabs = [
 export default function AssocDashboardNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [avatarOpen, setAvatarOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getInitial = () => {
+    const source = user?.full_name || user?.name || user?.email || 'ج';
+    return source.trim().charAt(0).toUpperCase();
+  };
 
   const handleLogout = async () => {
-    setAvatarOpen(false);
+    setMenuOpen(false);
     await logout();
     navigate("/assoc_sign_in");
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-gray-950/98 backdrop-blur-sm border-b border-green-900/30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+    <div className='fixed top-0 left-0 right-0 z-50 h-20 bg-[#0b1411]/95 backdrop-blur-md border-b border-[#1f3029] font-arabic shadow-sm' dir='rtl'>
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between relative'>
+        
+        {/* الشعار */}
+        <Link to='/' className='flex items-center gap-3 shrink-0'>
+          {/* Logo with transparent background (no white box) */}
+          <img className='w-10 h-10 object-contain' src={q} alt="شعار المنصة" />
+          <div className='flex text-2xl font-black'>
+            <span className='text-white'>طريق</span>
+            <span className='text-[#10b981]'>الإحسان</span>
+          </div>
+        </Link>
 
-          {/* LEFT (RTL: right visually) — Avatar dropdown */}
-          <div className="relative">
+        {/* الروابط (تظهر في الشاشات الكبيرة) - متمركزة تماماً */}
+        <nav className='hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2'>
+          {dashboardTabs.map((tab) => {
+            const isActive = location.pathname === tab.path;
+            return (
+              <Link
+                key={tab.label}
+                to={tab.path}
+                className={`transition-colors duration-300 text-sm font-bold hover:text-[#10b981] relative ${
+                  isActive ? "text-[#10b981]" : "text-[#d7e1dc]"
+                }`}
+              >
+                {tab.label}
+                {isActive && (
+                  <span className="absolute -bottom-[30px] left-0 right-0 h-1 bg-[#10b981] rounded-t-full" />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* الإجراءات (زر الحساب) */}
+        <div className='flex items-center gap-4 shrink-0'>
+          <div className="relative" ref={menuRef}>
             <button
-              onClick={() => setAvatarOpen(!avatarOpen)}
-              className="w-9 h-9 rounded-xl bg-green-700 hover:bg-green-600 border border-green-600 flex items-center justify-center text-white text-sm font-bold transition-all duration-200 shadow-lg shadow-green-900/40"
-              aria-label="حساب الجمعية"
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-[#10b981] to-[#0f7a59] text-white font-bold text-lg shadow-md shadow-black/20 border border-[#2d463d] overflow-hidden hover:scale-105 transition-transform"
+              aria-label="قائمة الحساب"
             >
-              ج
+              {user?.avatar_url || user?.logo_url ? (
+                <img src={user.avatar_url || user.logo_url} alt="الملف الشخصي" className="w-full h-full object-cover" />
+              ) : (
+                getInitial()
+              )}
             </button>
 
-            {/* Avatar dropdown */}
-            {avatarOpen && (
-              <div className="absolute left-0 top-12 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-xl py-1 text-right">
-                <Link
-                  to="/dashboard/association/profile"
-                  className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
-                  onClick={() => setAvatarOpen(false)}
-                >
-                  ملف الجمعية
-                </Link>
-                <Link
-                  to="/associations/1"
-                  className="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
-                  onClick={() => setAvatarOpen(false)}
+            {menuOpen && (
+              <div className="absolute left-0 top-14 w-48 bg-[#111a17] border border-[#243a32] rounded-xl shadow-2xl shadow-black/50 py-2 text-right z-50">
+                <div className="px-4 py-2 border-b border-[#1f3029] mb-1">
+                  <p className="text-white text-sm font-bold truncate">{user?.full_name || user?.name || 'جمعية'}</p>
+                  <p className="text-[#8ca197] text-xs truncate">{user?.email}</p>
+                </div>
+                <button
+                  type="button"
+                  className="w-full text-right px-4 py-2.5 text-sm text-[#d7e1dc] hover:text-[#10b981] hover:bg-[#1a2922] transition-colors"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(`/associations/${user?.association?.id || user?.id || 1}`);
+                  }}
                 >
                   عرض الصفحة العامة
-                </Link>
-                <div className="h-px bg-gray-800 my-1" />
+                </button>
                 <button
-                  className="w-full text-right px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 transition-colors"
+                  type="button"
+                  className="w-full text-right px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30 transition-colors"
                   onClick={handleLogout}
                 >
                   تسجيل الخروج
@@ -81,42 +114,9 @@ export default function AssocDashboardNavbar() {
               </div>
             )}
           </div>
-
-          {/* CENTER — Dashboard Tabs */}
-          <div className="flex items-center gap-1">
-            {dashboardTabs.map((tab) => {
-              const isActive = location.pathname === tab.path;
-              return (
-                <Link
-                  key={tab.label}
-                  to={tab.path}
-                  className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg
-                    ${isActive
-                      ? "text-white bg-green-900/30"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
-                    }`}
-                >
-                  {tab.label}
-                  {isActive && (
-                    <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-green-500 rounded-full" />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* RIGHT (RTL: left visually) — Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-white font-bold text-base">
-              إحسان <span className="text-green-400">الجزائر</span>
-            </span>
-            <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-900/50">
-              <span className="text-white text-xs font-bold">إ</span>
-            </div>
-          </Link>
-
         </div>
+
       </div>
-    </nav>
+    </div>
   );
 }

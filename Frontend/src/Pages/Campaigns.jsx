@@ -14,6 +14,7 @@ import {
 import Navbar from '../Components/Navbar'
 import DonationActionModal from '../Components/DonationActionModal'
 import useCampaigns from '../hooks/useCampaigns'
+import Footer from '../Components/Footer';
 
 const categoryStyles = {
   all: {
@@ -194,6 +195,7 @@ export default function Campaigns() {
         campaign={selectedCampaign}
         onClose={() => setSelectedCampaign(null)}
       />
+      <Footer />
     </div>
   )
 }
@@ -327,6 +329,7 @@ function CampaignCard({ campaign, onDonate }) {
             {donateLabel}
           </div>
         )}
+        
       </div>
     </article>
   )

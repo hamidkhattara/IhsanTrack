@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../../api/axios";
 import { fileToDataUrl } from "../../utils/fileToDataUrl";
+import { ASSOCIATION_LOCATIONS } from "../../utils/associationOptions"; // <-- Imported cities
 
 const EMPTY_FORM = {
   title: "",
@@ -239,14 +240,20 @@ export default function CreateEventForm({ onCreated, onCancel }) {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-semibold text-gray-200">الولاية*</label>
-            <input
-              type="text"
-              value={form.location_wilaya}
-              onChange={(e) => update("location_wilaya", e.target.value)}
-              placeholder="مثال: الجزائر"
-              className={inputCls(errors.location_wilaya)}
-              dir="rtl"
-            />
+            <div className="relative">
+              <select
+                value={form.location_wilaya}
+                onChange={(e) => update("location_wilaya", e.target.value)}
+                className={`${inputCls(errors.location_wilaya)} appearance-none pr-4 pl-10 cursor-pointer`}
+                dir="rtl"
+              >
+                <option value="">اختر الولاية</option>
+                {ASSOCIATION_LOCATIONS.map((wilaya) => (
+                  <option key={wilaya} value={wilaya}>{wilaya}</option>
+                ))}
+              </select>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">▼</span>
+            </div>
             {errors.location_wilaya ? <p className="text-red-400 text-xs">{errors.location_wilaya}</p> : null}
           </div>
 

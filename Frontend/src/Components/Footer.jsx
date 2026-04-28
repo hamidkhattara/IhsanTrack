@@ -1,72 +1,49 @@
 import { Link } from "react-router-dom";
-
-/**
- * Footer.jsx
- *
- * USED ON: Every page (imported in each Page component or in a Layout wrapper)
- *
- * CONTAINS:
- * - Logo + short description + social media icons (Facebook, Instagram, Twitter/X)
- * - Quick links column: الرئيسية, الحملات, الجمعيات, كيف يعمل
- * - Support links: تواصل معنا, الأسئلة الشائعة, سياسة الخصوصية, شروط الاستخدام
- * - Bottom bar: copyright + "صنع بـ 💚 في الجزائر"
- *
- * SOCIAL LINKS: Update hrefs with real social media URLs before going live.
- */
+import q from '../assets/Icons/q.png'
 
 const quickLinks = [
   { label: "الرئيسية", path: "/" },
-  { label: "الحملات", path: "/campaigns" },
-  { label: "الجمعيات", path: "/associations" },
-  { label: "كيف يعمل", path: "/#how-it-works" },
-  { label: "عن المنصة", path: "/about" },
+  { label: "من نحن", path: "/about_us" },
 ];
 
-const supportLinks = [
-  { label: "تواصل معنا", path: "/contact" },
-  { label: "الأسئلة الشائعة", path: "/faq" },
-  { label: "سياسة الخصوصية", path: "/privacy" },
-  { label: "شروط الاستخدام", path: "/terms" },
+const platformLinks = [
+  { label: "الجمعيات الخيرية", path: "/associations" },
+  { label: "حملات التبرع", path: "/campaigns" },
+  { label: "الفعاليات التطوعية", path: "/events" },
 ];
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 border-t border-green-900/30 mt-16 font-arabic" dir="rtl">
+    <footer className="bg-[#0b1411] border-t border-[#1f3029] font-arabic" dir="rtl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-right">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 text-right">
 
           {/* Brand Column */}
           <div className="md:col-span-2">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 justify-end mb-4">
-              <span className="text-white font-bold text-xl">
-                إحسان <span className="text-green-400">الجزائر</span>
+            <Link to="/" className="flex items-center gap-2 justify-start mb-6">
+              <img className="w-8 h-8 object-contain" src={q} alt="شعار المنصة" />
+              <span className="text-white font-black text-xl">
+                طريق <span className="text-[#10b981]">الإحسان</span>
               </span>
-              <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-900/50">
-                <span className="text-white text-sm font-bold">إ</span>
-              </div>
             </Link>
 
-            {/* Tagline */}
-            <p className="text-gray-400 text-sm leading-relaxed mb-5">
-              منصة التبرع الجزائرية الأولى التي تربط المتبرعين بالجمعيات والأفراد المحتاجين بكل شفافية وأمان عبر 58 ولاية.
+            <p className="text-[#8ca197] text-sm leading-relaxed mb-6 max-w-sm">
+              منصة جزائرية موثوقة تربط المتبرعين بالجمعيات الخيرية بشفافية، لتيسير التبرع والمشاركة في الفعاليات التطوعية عبر جميع الولايات.
             </p>
 
-            {/* Social icons */}
-            <div className="flex items-center gap-3 justify-end">
+            {/* Social icons (You can add real links here later) */}
+            <div className="flex items-center gap-3 justify-start">
               {[
-                { icon: "f", label: "Facebook", href: "https://facebook.com" },
-                { icon: "in", label: "Instagram", href: "https://instagram.com" },
-                { icon: "𝕏", label: "Twitter/X", href: "https://x.com" },
+                { icon: "f", label: "Facebook" },
+                { icon: "in", label: "Instagram" },
+                { icon: "𝕏", label: "Twitter" },
               ].map((social) => (
                 <a
                   key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#"
                   aria-label={social.label}
-                  className="w-9 h-9 rounded-lg bg-gray-800 hover:bg-green-700 border border-gray-700 hover:border-green-600 flex items-center justify-center text-gray-400 hover:text-white text-xs font-bold transition-all duration-200"
+                  className="w-9 h-9 rounded-xl bg-[#111a17] hover:bg-[#0f7a59] border border-[#243a32] hover:border-[#10b981] flex items-center justify-center text-[#8ca197] hover:text-white text-xs font-bold transition-all duration-300"
                 >
                   {social.icon}
                 </a>
@@ -76,13 +53,13 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-bold mb-4 text-sm tracking-wide">روابط سريعة</h4>
-            <ul className="space-y-2.5">
+            <h4 className="text-white font-black mb-5 text-sm">روابط سريعة</h4>
+            <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.label}>
                   <Link
                     to={link.path}
-                    className="text-gray-400 hover:text-green-400 text-sm transition-colors duration-200"
+                    className="text-[#8ca197] hover:text-[#10b981] text-sm font-medium transition-colors duration-200"
                   >
                     {link.label}
                   </Link>
@@ -91,15 +68,15 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Support Links */}
+          {/* Platform Links */}
           <div>
-            <h4 className="text-white font-bold mb-4 text-sm tracking-wide">الدعم</h4>
-            <ul className="space-y-2.5">
-              {supportLinks.map((link) => (
+            <h4 className="text-white font-black mb-5 text-sm">المنصة</h4>
+            <ul className="space-y-3">
+              {platformLinks.map((link) => (
                 <li key={link.label}>
                   <Link
                     to={link.path}
-                    className="text-gray-400 hover:text-green-400 text-sm transition-colors duration-200"
+                    className="text-[#8ca197] hover:text-[#10b981] text-sm font-medium transition-colors duration-200"
                   >
                     {link.label}
                   </Link>
@@ -111,12 +88,12 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-gray-600 text-xs">
+        <div className="mt-12 pt-6 border-t border-[#1f3029] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-[#6f837a] text-xs font-medium">
             صنع بـ 💚 في الجزائر &mdash; جميع الحقوق محفوظة © {new Date().getFullYear()}
           </p>
-          <p className="text-gray-600 text-xs">
-            إحسان الجزائر &mdash; منصة التبرع الجزائرية
+          <p className="text-[#6f837a] text-xs font-medium">
+            طريق الإحسان &mdash; منصة التبرع الجزائرية
           </p>
         </div>
 

@@ -7,49 +7,7 @@ import CreateEventForm from "../Components/dashboard/CreateEventForm";
 import EventsTable from "../Components/dashboard/EventsTable";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
-
-/**
- * AssocEventsDashboardPage.jsx
- *
- * ROUTE: /dashboard/association/events
- *
- * ACCESS: Protected — association accounts only.
- * Wrap with <ProtectedRoute role="association"> in App.jsx.
- *
- * PURPOSE:
- * The association's event & volunteer management interface. Allows them to:
- *   1. View overall event stats (published events, total volunteers, ongoing events)
- *   2. Create a new participation event/campaign via inline form
- *   3. View, filter, manage all their events in a table
- *   4. See who signed up (volunteers) for each event
- *
- * PAGE LAYOUT (top to bottom):
- * ┌──────────────────────────────────────────────────────┐
- * │  AssocDashboardNavbar (إدارة الفعاليات tab active)  │
- * ├──────────────────────────────────────────────────────┤
- * │  Page header: title + subtitle + create button       │
- * ├──────────────────────────────────────────────────────┤
- * │  EventsDashboardStats  (3 KPI cards)                 │
- * ├──────────────────────────────────────────────────────┤
- * │  CreateEventForm  (بيانات الحملة الجديدة)           │
- * ├──────────────────────────────────────────────────────┤
- * │  EventsTable  (events list + volunteer drawer)       │
- * ├──────────────────────────────────────────────────────┤
- * │  DashboardFooter                                     │
- * └──────────────────────────────────────────────────────┘
- *
- * STATE:
- * - showCreateForm: toggles the create event form
- * - events: array of event objects (mock → replace with API)
- * - selectedEvent: when set, shows the volunteers side panel
- *
- * API ENDPOINTS (production):
- *   GET    /api/associations/me/events          → load events list
- *   POST   /api/associations/me/events          → create event
- *   DELETE /api/associations/me/events/:id      → delete event
- *   GET    /api/events/:id/volunteers           → list volunteers for an event
- *   DELETE /api/events/:id/volunteers/:userId   → remove a volunteer
- */
+import Footer from '../Components/Footer';
 
 export default function AssocEventsDashboardPage() {
   const { user, isAuthenticated, authLoading } = useAuth();
@@ -166,9 +124,9 @@ export default function AssocEventsDashboardPage() {
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">
       <AssocDashboardNavbar activeTab="/dashboard/association/events" />
 
-      <main className="pt-14">
+      <main className="pt-20">
         {/* ── Page Header ── */}
-        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-14 z-40">
+        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-20 z-40">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               {/* Left: create button */}
@@ -222,7 +180,7 @@ export default function AssocEventsDashboardPage() {
         </div>
       </main>
 
-      <DashboardFooter />
+      <Footer />
     </div>
   );
 }
@@ -241,6 +199,7 @@ function mapEventRow(event) {
   else if (start <= now && end >= now) status = "نشطة";
 
   return {
+    ...event, // Ensure we carry all raw properties (description, wilaya, etc.)
     id: event.id,
     title: event.title,
     image: event.image_url,
@@ -256,6 +215,7 @@ function mapEventRow(event) {
     category: event.age_range || "عام",
     startDateValue: start,
     endDateValue: end,
+    raw: event, // Attached raw event for the Edit Modal
   };
 }
 

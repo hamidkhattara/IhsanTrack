@@ -6,7 +6,7 @@ import AssocEditSidebar from "../Components/association-profile/AssocEditSidebar
 import AssocEditLocation from "../Components/association-profile/AssocEditLocation";
 import DashboardFooter from "../Components/dashboard/DashboardFooter";
 import api from "../api/axios";
-
+import Footer from '../Components/Footer';
 /**
  * AssocEditProfilePage.jsx
  *
@@ -357,9 +357,9 @@ export default function AssocEditProfilePage() {
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">
       <AssocDashboardNavbar />
 
-      <main className="pt-14">
+      <main className="pt-20">
         {/* ── Page Header ── */}
-        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-14 z-40">
+        <div className="bg-gray-950 border-b border-gray-800/60 sticky top-20 z-40">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between gap-4">
               {/* Title block */}
@@ -413,7 +413,7 @@ export default function AssocEditProfilePage() {
         {pageContent}
       </main>
 
-      <DashboardFooter />
+      <Footer />
     </div>
   );
 }

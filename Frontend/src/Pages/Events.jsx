@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import Navbar from '../Components/Navbar'
 import EventJoinModal from '../Components/EventJoinModal'
 import useEvents from '../hooks/useEvents'
-import { FiCalendar, FiMapPin, FiSearch, FiArrowLeft } from 'react-icons/fi'
+import Footer from '../Components/Footer';
+import { FiCalendar, FiMapPin, FiSearch, FiArrowLeft, FiChevronDown } from 'react-icons/fi'
+import { ASSOCIATION_LOCATIONS } from '../utils/associationOptions'
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center py-24">
@@ -39,32 +41,53 @@ const Events = () => {
   const { events, loading, error } = useEvents();
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [searchParams] = useSearchParams();
-  const [city, setCity] = useState('all');
-  const [date, setDate] = useState('');
+  
+  // Filter States
   const [search, setSearch] = useState('');
+  const [city, setCity] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [onlyOpen, setOnlyOpen] = useState(true);
 
   const filteredEvents = useMemo(() => {
     const query = search.trim().toLowerCase();
+    
     return (events || []).filter((event) => {
+      // 1. Search Query
       const titleMatch = event?.title?.toLowerCase().includes(query);
       const descriptionMatch = event?.description?.toLowerCase().includes(query);
       const associationMatch = event?.association?.name?.toLowerCase().includes(query);
       const matchesQuery = !query || titleMatch || descriptionMatch || associationMatch;
+      
+      // 2. City Match
       const matchesCity = city === 'all' || (event?.location_wilaya || event?.location || '').toLowerCase().includes(city.toLowerCase());
-      const matchesDate = !date || String(event?.start_date || '').startsWith(date);
+      
+      // 3. Date Range Match (From - To)
+      let matchesDate = true;
+      if (event?.start_date) {
+        const evDate = new Date(event.start_date).getTime();
+        
+        if (dateFrom) {
+          const fromTime = new Date(dateFrom).getTime();
+          matchesDate = matchesDate && evDate >= fromTime;
+        }
+        
+        if (dateTo) {
+          // Add 86400000ms (1 day) to include the entire 'To' day
+          const toTime = new Date(dateTo).getTime() + 86400000;
+          matchesDate = matchesDate && evDate <= toTime;
+        }
+      } else if (dateFrom || dateTo) {
+        matchesDate = false; // If filtering by date and event has no date, hide it
+      }
+
+      // 4. Open Registration Match
       const seatsLeft = Math.max(0, Number(event?.max_participants || 0) - Number(event?.spots_taken || 0));
       const matchesOpen = !onlyOpen || seatsLeft > 0;
+      
       return matchesQuery && matchesCity && matchesDate && matchesOpen;
     });
-  }, [city, date, events, onlyOpen, search]);
-
-  const cityOptions = useMemo(() => {
-    const values = (events || [])
-      .map((event) => event?.location_wilaya || event?.location)
-      .filter(Boolean);
-    return Array.from(new Set(values));
-  }, [events]);
+  }, [city, dateFrom, dateTo, events, onlyOpen, search]);
 
   useEffect(() => {
     const eventId = searchParams.get('id');
@@ -75,58 +98,80 @@ const Events = () => {
   }, [events, searchParams]);
 
   return (
-    <div className="min-h-screen bg-[#0a120f] text-white font-arabic" dir="rtl">
+    <div className="min-h-screen bg-[#0b1411] text-white font-arabic" dir="rtl">
       <Navbar/>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20">
-        <div className="rounded-[28px] border border-[#20332b] bg-linear-to-br from-[#111a17] to-[#0d1512] p-6 sm:p-8 mb-8 shadow-2xl shadow-black/20">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-black text-white">الفعاليات وفرص التطوع</h1>
-            <p className="text-[#8aa298] mt-3 max-w-2xl mx-auto">ابحث عن الفعالية المناسبة، تصفح الأماكن المفتوحة، وسجل مباشرة في الفرص المتاحة.</p>
-          </div>
+        
+        {/* Modern Filter Section */}
+        <div className="mb-8 rounded-3xl border border-[#21362f] bg-[#111a17] p-5 sm:p-7 shadow-xl shadow-black/20">
+          <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="text-right">
+              <h1 className="text-3xl font-black text-white sm:text-4xl">الفعاليات وفرص التطوع</h1>
+              <p className="mt-2 text-sm text-[#8da399]">ابحث عن الفعالية المناسبة، تصفح الأماكن المفتوحة، وسجل مباشرة في الفرص المتاحة.</p>
+            </div>
 
-          <div className="flex flex-col gap-4 rounded-3xl bg-[#15201c] border border-[#22352d] p-4 lg:flex-row lg:items-center">
             <button
               type="button"
               onClick={() => setOnlyOpen((value) => !value)}
-              className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition-all ${onlyOpen ? 'bg-[#10b981] text-white' : 'bg-[#111a17] text-[#9bb0a6] border border-[#2a3d35]'}`}
+              className={`shrink-0 inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition-all border ${
+                onlyOpen 
+                  ? 'bg-[#10b981] text-white border-[#10b981]' 
+                  : 'bg-[#0d1613] text-[#8ca197] border-[#2d463d] hover:border-[#10b981]/50'
+              }`}
             >
-              <span className="text-base">⚡</span>
-              {onlyOpen ? 'Open only' : 'All events'}
+              <span className={onlyOpen ? 'text-white' : 'text-[#10b981]'}>⚡</span>
+              {onlyOpen ? 'متاحة للتسجيل فقط' : 'عرض كل الفعاليات'}
             </button>
+          </div>
 
-            <label className="flex items-center gap-2 rounded-2xl border border-[#2a3d35] bg-[#0f1714] px-4 py-3 text-sm text-[#d8e2dc] lg:w-52">
-              <FiCalendar className="shrink-0 text-[#10b981]" />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-transparent outline-none text-right text-white placeholder:text-[#74847c]"
-              />
-            </label>
-
-            <label className="flex items-center gap-2 rounded-2xl border border-[#2a3d35] bg-[#0f1714] px-4 py-3 text-sm text-[#d8e2dc] lg:w-56">
-              <FiMapPin className="shrink-0 text-[#10b981]" />
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full bg-transparent outline-none text-white"
-              >
-                <option value="all">كل المدن</option>
-                {cityOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-1 items-center gap-3 rounded-2xl border border-[#2a3d35] bg-[#0f1714] px-4 py-3 text-sm text-[#d8e2dc]">
-              <FiSearch className="shrink-0 text-[#10b981]" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <label className="flex items-center gap-3 rounded-2xl border border-[#2d463d] bg-[#0d1613] px-4 py-3 text-sm transition-colors focus-within:border-[#10b981]">
+              <FiSearch className="shrink-0 text-[#7f948b]" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث عن فعالية، جمعية، أو موقع..."
-                className="w-full bg-transparent outline-none text-right text-white placeholder:text-[#74847c]"
+                placeholder="ابحث عن فعالية، جمعية..."
+                className="w-full bg-transparent outline-none text-right text-white placeholder:text-[#6f837a]"
+              />
+            </label>
+
+            {/* City Select */}
+            <div className="relative">
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full appearance-none rounded-2xl border border-[#2d463d] bg-[#0d1613] px-4 py-3 pr-10 text-sm text-white outline-none transition-colors hover:border-[#10b981]/50"
+              >
+                <option value="all">كل المدن (58 ولاية)</option>
+                {ASSOCIATION_LOCATIONS.map((wilaya) => (
+                  <option key={wilaya} value={wilaya}>{wilaya}</option>
+                ))}
+              </select>
+              <FiChevronDown className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8ca197]" />
+            </div>
+
+            {/* Date From */}
+            <label className="flex items-center gap-2 rounded-2xl border border-[#2d463d] bg-[#0d1613] px-4 py-3 text-sm transition-colors focus-within:border-[#10b981]">
+              <span className="shrink-0 text-[#7f948b] text-xs font-bold w-6">من:</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full bg-transparent outline-none text-right text-white placeholder:text-[#6f837a]"
+              />
+            </label>
+
+            {/* Date To */}
+            <label className="flex items-center gap-2 rounded-2xl border border-[#2d463d] bg-[#0d1613] px-4 py-3 text-sm transition-colors focus-within:border-[#10b981]">
+              <span className="shrink-0 text-[#7f948b] text-xs font-bold w-6">إلى:</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full bg-transparent outline-none text-right text-white placeholder:text-[#6f837a]"
               />
             </label>
           </div>
@@ -136,9 +181,9 @@ const Events = () => {
         {error ? <p className="text-red-400 text-right">{error}</p> : null}
 
         {!loading && !error && filteredEvents.length === 0 ? (
-          <div className="bg-[#111a17] border border-[#22352d] rounded-3xl p-10 text-center text-[#9eb0a7]">
-            <h3 className="text-white text-lg font-bold">لا توجد فعاليات حالياً</h3>
-            <p className="text-gray-400 text-sm mt-2">سيتم عرض الفعاليات هنا عند نشرها من طرف الجمعيات.</p>
+          <div className="mt-8 rounded-3xl border border-[#22352d] bg-[#111a17] p-10 text-center text-[#9eb0a7]">
+            <h3 className="text-white text-lg font-bold mb-2">لا توجد فعاليات مطابقة لبحثك</h3>
+            <p className="text-[#8da399] text-sm">جرب تغيير الفلاتر أو إزالة النطاق الزمني لعرض المزيد من النتائج.</p>
           </div>
         ) : null}
 
@@ -155,7 +200,7 @@ const Events = () => {
             return (
               <article
                 key={event.id}
-                className="group overflow-hidden rounded-3xl border border-[#22352d] bg-[#111a17] shadow-lg shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:border-[#10b981]/40"
+                className="group overflow-hidden rounded-2xl border border-[#243a32] bg-[#111a17] shadow-lg shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:border-[#10b981]/40 hover:shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
                 onClick={() => setSelectedEvent(event)}
                 role="button"
                 tabIndex={0}
@@ -166,70 +211,92 @@ const Events = () => {
                   }
                 }}
               >
-                <div className="relative aspect-video overflow-hidden bg-linear-to-br from-emerald-950 via-[#12332a] to-[#334155] flex items-center justify-center">
+                <div className="relative aspect-video overflow-hidden bg-linear-to-br from-[#0f3d32] via-[#12332a] to-[#334155] flex items-center justify-center">
                   {coverImage ? (
                     <img
                       src={coverImage}
                       alt={event.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <span className="text-6xl opacity-50">📅</span>
+                    <span className="text-6xl opacity-20">📅</span>
                   )}
-                  <div className="absolute top-3 right-3 rounded-full bg-[#10b981] px-3 py-1 text-xs font-bold text-white shadow-lg shadow-emerald-900/30">
-                    مفتوح للتسجيل
-                  </div>
-                  <div className="absolute top-3 left-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg shadow-red-950/30">
-                    {seatsLeft <= 5 ? 'عاجل' : `${seatsLeft} مقعد متبقٍ`}
-                  </div>
+                  
+                  {seatsLeft > 0 ? (
+                    <div className="absolute top-3 right-3 rounded-full bg-[#10b981] px-3 py-1 text-xs font-bold text-white shadow-lg shadow-emerald-900/30">
+                      مفتوح للتسجيل
+                    </div>
+                  ) : (
+                    <div className="absolute top-3 right-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg shadow-red-900/30">
+                      مكتمل
+                    </div>
+                  )}
+
+                  {seatsLeft > 0 && seatsLeft <= 5 && (
+                    <div className="absolute top-3 left-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg shadow-red-950/30 animate-pulse">
+                      عاجل
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex h-full flex-col p-5 text-right">
                   <div className="mb-4">
-                    <p className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-[#3b82f6]">
+                    {/* Fixed: justify-start properly aligns to the right in RTL */}
+                    <p className="mb-2 flex items-center justify-start gap-1 text-sm font-semibold text-[#3b82f6]">
                       {associationName}
                       <span className="text-[#10b981]">✓</span>
                     </p>
                     <h2 className="line-clamp-2 text-xl font-black text-white">{event.title}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#9eb0a7]">{event.description}</p>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#8ea49a]">{event.description}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs text-[#9eb0a7]">
-                    <div className="rounded-2xl border border-[#22352d] bg-[#0f1714] p-3">
-                      <div className="mb-1 flex items-center justify-end gap-2"><span>{'🕒'}</span><span>الوقت</span></div>
-                      <div className="text-white">{event.time || formatDateTime(event.start_date)}</div>
+                    {/* Fixed: items-start pushes elements to the right in RTL */}
+                    <div className="rounded-2xl border border-[#22352d] bg-[#0d1613] p-3 flex flex-col items-start">
+                      <div className="mb-1 flex items-center gap-1.5"><span className="text-[#10b981]">🕒</span><span>الوقت</span></div>
+                      <div className="text-white font-medium text-right" dir="rtl">{event.time || formatDateTime(event.start_date).split(' ')[0]}</div>
                     </div>
-                    <div className="rounded-2xl border border-[#22352d] bg-[#0f1714] p-3">
-                      <div className="mb-1 flex items-center justify-end gap-2"><span>{'📅'}</span><span>التاريخ</span></div>
-                      <div className="text-white">{formatDate(event.start_date)}</div>
+                    {/* Fixed: items-start pushes elements to the right in RTL */}
+                    <div className="rounded-2xl border border-[#22352d] bg-[#0d1613] p-3 flex flex-col items-start">
+                      <div className="mb-1 flex items-center gap-1.5"><span className="text-[#10b981]">📅</span><span>التاريخ</span></div>
+                      <div className="text-white font-medium text-right" dir="rtl">{formatDate(event.start_date)}</div>
                     </div>
-                    <div className="col-span-2 rounded-2xl border border-[#22352d] bg-[#0f1714] p-3">
-                      <div className="mb-1 flex items-center justify-end gap-2"><span>{'📍'}</span><span>الموقع</span></div>
-                      <div className="text-white">{location}</div>
+                    {/* Fixed: items-start pushes elements to the right in RTL */}
+                    <div className="col-span-2 rounded-2xl border border-[#22352d] bg-[#0d1613] p-3 flex flex-col items-start">
+                      <div className="mb-1 flex items-center gap-1.5"><span className="text-[#10b981]">📍</span><span>الموقع</span></div>
+                      <div className="text-white font-medium text-right" dir="rtl">{location}</div>
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <div className="mb-2 flex items-center justify-between text-xs text-[#9eb0a7]">
-                      <span>{spotsTaken} / {maxParticipants}</span>
-                      <span>{seatsLeft} seats available</span>
+                    <div className="mb-2 flex items-center justify-between text-xs text-[#9eb0a7] font-medium">
+                      <span>{spotsTaken} / {maxParticipants} محجوز</span>
+                      <span className={seatsLeft <= 5 && seatsLeft > 0 ? "text-red-400" : "text-[#10b981]"}>
+                        {seatsLeft} مقعد متاح
+                      </span>
                     </div>
                     <div className="h-2 rounded-full bg-[#1c2a24] overflow-hidden">
-                      <div className="h-full rounded-full bg-[#10b981]" style={{ width: `${progress}%` }} />
+                      <div className="h-full rounded-full bg-[#10b981] transition-all duration-500" style={{ width: `${progress}%` }} />
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(eventClick) => {
-                      eventClick.stopPropagation();
-                      setSelectedEvent(event);
-                    }}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f97316] px-4 py-3 font-bold text-white transition-all duration-200 hover:bg-[#ea670f]"
-                  >
-                    Book my place now
-                    <FiArrowLeft />
-                  </button>
+                  {seatsLeft > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(eventClick) => {
+                        eventClick.stopPropagation();
+                        setSelectedEvent(event);
+                      }}
+                      className="group/btn mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f7a59] border border-[#1f6f57] px-4 py-3 font-bold text-white transition-all duration-300 hover:bg-[#10b981] hover:border-[#10b981]"
+                    >
+                      <span className="transition-transform duration-300 group-hover/btn:-translate-x-1">←</span>
+                      احجز مقعدي الآن
+                    </button>
+                  ) : (
+                    <div className="mt-5 w-full rounded-xl border border-[#22352d] bg-[#111a17] px-4 py-3 text-center text-sm font-extrabold text-[#74847c]">
+                      اكتمل العدد
+                    </div>
+                  )}
                 </div>
               </article>
             );
@@ -241,6 +308,7 @@ const Events = () => {
         event={selectedEvent}
         onClose={() => setSelectedEvent(null)}
       />
+      <Footer />
     </div>
   )
 }

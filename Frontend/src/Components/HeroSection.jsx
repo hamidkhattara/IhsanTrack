@@ -1,133 +1,90 @@
 import { Link } from "react-router-dom";
 
-/**
- * HeroSection.jsx
- *
- * USED ON: HomePage only
- *
- * CONTAINS:
- * - Background: deep dark green with subtle radial gradient + dot-grid texture
- * - LEFT PANEL (RTL right): animated stats ticker — "أكثر من 12,450+" donations, SIM badge, "850+" associations
- * - RIGHT PANEL (RTL left): Main headline, subtext, two CTA buttons
- * - Two CTA buttons:
- *     "تبرع الآن" (Donate Now)  → /campaigns
- *     "ابدأ حملة" (Start Campaign) → /register?type=association
- *
- * BACKGROUND DETAIL:
- * The dark green mesh gradient mimics the original design's atmosphere.
- * A subtle dot-grid SVG pattern is layered for depth.
- */
-
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center pt-16 overflow-hidden bg-gray-950 font-arabic" dir="rtl">
-
+    <section className="relative min-h-screen flex items-center pt-20 pb-12 overflow-hidden bg-[#0b1411] font-arabic" dir="rtl">
       {/* Background mesh gradient */}
-      <div className="absolute inset-0 bg-gradient-radial from-green-950/80 via-gray-950 to-gray-950" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0f3d32]/20 via-[#0b1411] to-[#0b1411]" />
 
       {/* Decorative green glow blobs */}
-      <div className="absolute top-1/4 right-1/3 w-96 h-96 bg-green-700/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-green-600/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute top-1/4 right-1/3 w-96 h-96 bg-[#10b981]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-[#0f7a59]/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Dot grid texture overlay */}
       <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: "radial-gradient(circle, #22c55e 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(circle, #10b981 1px, transparent 1px)",
           backgroundSize: "32px 32px",
         }}
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
-          {/* RIGHT COLUMN (RTL: displayed first visually) — Main Content */}
-          <div className="space-y-8 text-right order-1 lg:order-1">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-green-900/40 border border-green-700/50 rounded-full px-4 py-1.5 text-green-400 text-sm">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          {/* RIGHT COLUMN (RTL: displayed first visually) */}
+          <div className="space-y-8 text-right order-1">
+            <div className="inline-flex items-center gap-2 bg-[#111a17] border border-[#2d463d] rounded-full px-4 py-1.5 text-[#10b981] text-sm shadow-lg shadow-black/20">
+              <span className="w-2 h-2 bg-[#10b981] rounded-full animate-pulse" />
               منصة التبرع الأولى في الجزائر
             </div>
 
-            {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight text-white">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.2] text-white">
               معاً من أجل{" "}
-              <span className="text-green-400 relative">
+              <span className="text-[#10b981] relative">
                 جزائر
-                <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 8" fill="none">
-                  <path d="M0 6 Q100 0 200 6" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" />
+                <svg className="absolute -bottom-2 left-0 w-full opacity-70" viewBox="0 0 200 8" fill="none">
+                  <path d="M0 6 Q100 0 200 6" stroke="#10b981" strokeWidth="3" strokeLinecap="round" />
                 </svg>
               </span>
               <br />
-              <span className="text-gray-200 text-3xl sm:text-4xl font-bold">أكثر تكاملاً وإنسانية</span>
+              <span className="text-[#d7e1dc] text-3xl sm:text-4xl font-extrabold mt-2 block">أكثر تكاملاً وإنسانية</span>
             </h1>
 
-            {/* Subtext */}
-            <p className="text-gray-400 text-lg leading-relaxed max-w-xl mr-auto lg:mr-0">
-              منصة إحسان الجزائر تربط المتبرعين بالجمعيات والأفراد المحتاجين، لتيسير التبرع بشفافية وأمان تام عبر جميع الولايات.
+            <p className="text-[#8ca197] text-lg leading-relaxed max-w-xl">
+              منصة إحسان تربط المتبرعين بالجمعيات والأفراد المحتاجين، لتيسير التبرع والمشاركة في الفعاليات التطوعية بشفافية وأمان عبر جميع الولايات.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-4 justify-end">
+            <div className="flex flex-wrap gap-4 justify-start">
               <Link
                 to="/campaigns"
-                className="px-8 py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all duration-300 shadow-xl shadow-green-900/40 hover:shadow-green-700/50 hover:-translate-y-0.5 text-base"
+                className="px-8 py-3.5 bg-[#0f7a59] hover:bg-[#10b981] text-white font-bold rounded-xl transition-all duration-300 border border-[#1f6f57] hover:border-[#10b981] shadow-lg shadow-emerald-900/20"
               >
                 تبرع الآن
               </Link>
               <Link
                 to="/assoc_sign_up"
-                className="px-8 py-3.5 bg-transparent border-2 border-green-600 text-green-400 hover:bg-green-600 hover:text-white font-bold rounded-xl transition-all duration-300 text-base"
+                className="px-8 py-3.5 bg-[#111a17] border border-[#2d463d] text-[#10b981] hover:bg-[#1a2922] hover:border-[#10b981]/50 font-bold rounded-xl transition-all duration-300"
               >
-                ابدأ حملة
+                سجل جمعيتك
               </Link>
             </div>
           </div>
 
-          {/* LEFT COLUMN (RTL: displayed second) — Stats Card */}
-          <div className="order-2 lg:order-2 flex justify-center lg:justify-start">
+          {/* LEFT COLUMN (RTL: displayed second) */}
+          <div className="order-2 flex justify-center lg:justify-end">
             <div className="relative w-full max-w-sm">
-              {/* Main stats card */}
-              <div className="bg-gray-900/80 backdrop-blur-sm border border-green-800/40 rounded-2xl p-6 shadow-2xl shadow-green-950/60">
-                <p className="text-gray-400 text-sm mb-4 text-right font-medium">الإحصائيات الكلية</p>
+              <div className="bg-[#111a17]/80 backdrop-blur-md border border-[#243a32] rounded-3xl p-7 shadow-2xl shadow-black/40">
+                <p className="text-[#8ca197] text-sm mb-6 font-semibold">مميزات المنصة</p>
 
-                {/* Stat rows */}
-                <div className="space-y-4">
-                  <StatRow
-                    icon="💚"
-                    value="+12,450"
-                    label="إجمالي التبرعات"
-                    color="text-green-400"
-                  />
-                  <div className="h-px bg-green-900/30" />
-                  <StatRow
-                    icon="🏦"
-                    value="SIM"
-                    label="دفع آمن عبر البنك"
-                    color="text-blue-400"
-                    badge
-                  />
-                  <div className="h-px bg-green-900/30" />
-                  <StatRow
-                    icon="🏢"
-                    value="+850"
-                    label="جمعية مسجلة"
-                    color="text-yellow-400"
-                  />
+                <div className="space-y-5">
+                  <StatRow icon="🤝" value="0%" label="بدون أي عمولة" color="text-[#10b981]" />
+                  <div className="h-px bg-[#1f3029]" />
+                  <StatRow icon="💳" value="آمن" label="دفع إلكتروني موثوق" color="text-blue-400" />
+                  <div className="h-px bg-[#1f3029]" />
+                  <StatRow icon="📍" value="58" label="ولاية جزائرية مغطاة" color="text-yellow-400" />
                 </div>
 
-                {/* Bottom CTA mini */}
                 <Link
-                  to="/campaigns"
-                  className="mt-5 w-full block text-center py-2.5 bg-green-600/20 hover:bg-green-600/40 border border-green-700/50 text-green-300 text-sm font-medium rounded-xl transition-all duration-200"
+                  to="/events"
+                  className="mt-6 w-full block text-center py-3 bg-[#0d1613] hover:bg-[#1a2922] border border-[#2d463d] text-[#10b981] text-sm font-bold rounded-xl transition-all duration-200"
                 >
-                  استكشف الحملات ←
+                  استكشف الفعاليات التطوعية ←
                 </Link>
               </div>
 
-              {/* Floating badge top-right */}
-              <div className="absolute -top-3 -right-3 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-green-900/50">
-                ✓ موثوق
+              <div className="absolute -top-4 -right-4 bg-[#10b981] text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg shadow-emerald-900/30 border border-[#0f7a59]">
+                ✓ شفافية تامة
               </div>
             </div>
           </div>
@@ -138,17 +95,13 @@ export default function HeroSection() {
   );
 }
 
-/**
- * StatRow — small helper component used only inside HeroSection
- * NOT exported separately; defined here for colocation.
- */
-function StatRow({ icon, value, label, color, badge }) {
+function StatRow({ icon, value, label, color }) {
   return (
     <div className="flex items-center justify-between">
-      <span className={`text-lg font-bold ${color}`}>{value}</span>
-      <div className="flex items-center gap-2 text-right">
-        <span className="text-gray-300 text-sm">{label}</span>
-        <span className="text-xl">{icon}</span>
+      <span className={`text-xl font-black ${color}`} dir="ltr">{value}</span>
+      <div className="flex items-center gap-3 text-right">
+        <span className="text-[#d7e1dc] text-sm font-medium">{label}</span>
+        <span className="text-2xl bg-[#0b1411] p-2 rounded-xl border border-[#243a32]">{icon}</span>
       </div>
     </div>
   );
