@@ -56,7 +56,8 @@ export default function CampaignsDashboardStats({ stats }) {
       icon: "👥",
       iconBg: "bg-purple-900/40 border-purple-800/40",
       label: "عدد المتبرعين",
-      value: String(stats?.uniqueDonors || 0),
+      // Prefer total donations (including anonymous); fall back to unique donors
+      value: String(stats?.totalDonations ?? stats?.uniqueDonors ?? 0),
       unit: "",
       unitPosition: "after",
       badge: "بيانات فعلية من قاعدة البيانات",

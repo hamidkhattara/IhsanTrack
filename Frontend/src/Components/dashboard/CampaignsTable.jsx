@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../api/axios";
+import { fileToDataUrl } from "../../utils/fileToDataUrl";
 
 /**
  * CampaignsTable.jsx
@@ -28,16 +29,18 @@ import api from "../../api/axios";
  *   setCampaigns  — setter to update campaigns list (for delete/status change)
  */
 
-const STATUS_TABS = ["الجميع", "نشطة", "انتظار", "مكتملة"];
+const STATUS_TABS = ["الجميع", "نشطة", "منتهية", "مكتملة"];
 
 const STATUS_STYLES = {
   نشطة:    { pill: "bg-green-900/40 text-green-300 border-green-800/50",  dot: "bg-green-400" },
   انتظار:  { pill: "bg-yellow-900/40 text-yellow-300 border-yellow-800/50", dot: "bg-yellow-400" },
   مكتملة:  { pill: "bg-blue-900/40 text-blue-300 border-blue-800/50",    dot: "bg-blue-400" },
+  منتهية:   { pill: "bg-red-900/40 text-red-300 border-red-800/50",       dot: "bg-red-400" },
   ملغاة:   { pill: "bg-red-900/40 text-red-300 border-red-800/50",       dot: "bg-red-400" },
 };
 
 const ITEMS_PER_PAGE = 5;
+const DOMAIN_OPTIONS = ["عام", "صحة", "تعليم", "إغاثة", "أيتام", "رمضان"];
 
 export default function CampaignsTable({ campaigns, onRefresh }) {
   const [activeTab, setActiveTab] = useState("الجميع");
@@ -309,26 +312,28 @@ function CampaignRow({ campaign, onOpenDonors, isSelected, onEditRequest, onDele
           className="w-full text-right"
           title="عرض قائمة المتبرعين"
         >
-        <div className="flex items-center gap-3 justify-end hover:opacity-90 transition-opacity">
-          <div className="text-right">
-            <p className="text-white font-semibold text-sm leading-snug group-hover:text-green-100 transition-colors">
-              {campaign.title}
-            </p>
-            <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1 justify-end">
-              <span>{campaign.createdAt}</span>
-              <span>•</span>
-              <span>👥 {campaign.donors} متبرع</span>
-            </p>
+          <div className="flex items-center gap-3 justify-end hover:opacity-90 transition-opacity">
+            <div className="text-right">
+              <p className="text-white font-semibold text-sm leading-snug group-hover:text-green-100 transition-colors">
+                {campaign.title}
+              </p>
+              <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-1 justify-end flex-wrap">
+                <span>{campaign.domain || "عام"}</span>
+                <span>•</span>
+                <span>{campaign.createdAt}</span>
+                <span>•</span>
+                <span>👥 {campaign.donors} متبرع</span>
+              </p>
+            </div>
+            {/* Thumbnail */}
+            <div className="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+              {campaign.image ? (
+                <img src={campaign.image} alt={campaign.title} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl">{campaign.imageEmoji}</span>
+              )}
+            </div>
           </div>
-          {/* Thumbnail */}
-          <div className="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-            {campaign.image ? (
-              <img src={campaign.image} alt={campaign.title} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl">{campaign.imageEmoji}</span>
-            )}
-          </div>
-        </div>
         </button>
       </td>
 
@@ -416,24 +421,77 @@ function ActionBtn({ icon, title, className, onClick, disabled }) {
 }
 
 function EditCampaignModal({ campaign, onClose, onSaved }) {
+  // Safely convert maxDate to datetime-local format
+  let maxDateValue = "";
+  if (campaign.maxDate) {
+    try {
+      const date = new Date(campaign.maxDate);
+      if (!Number.isNaN(date.getTime())) {
+        // For datetime-local input, we need to format as YYYY-MM-DDTHH:mm
+        // Convert to ISO string and slice to get the correct format
+        const isoString = date.toISOString();
+        maxDateValue = isoString.slice(0, 16); // "2026-05-01T12:00"
+      }
+    } catch (err) {
+      console.warn("Failed to parse maxDate:", campaign.maxDate, err);
+    }
+  }
+
   const [form, setForm] = useState({
     title: campaign.title || "",
     description: campaign.description || "",
-    goal_amount: String(campaign.goal || ""),
-    max_date: campaign.maxDate ? new Date(campaign.maxDate).toISOString().slice(0, 16) : "",
+    domain: campaign.domain || "عام",
+    image_url: campaign.image_url || campaign.image || "",
+    goal_amount: String(campaign.goal || campaign.goal_amount || ""),
+    current_amount: String(campaign.raised || campaign.current_amount || 0),
+    max_date: maxDateValue,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [imagePreview, setImagePreview] = useState(campaign.image_url || campaign.image || "");
+
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setError("");
+  };
+
+  const handleImageFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const dataUrl = await fileToDataUrl(file);
+    setForm((prev) => ({ ...prev, image_url: dataUrl }));
+    setImagePreview(dataUrl);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     setError("");
     try {
+      // Parse the datetime-local value
+      let maxDateToSend = null;
+      if (form.max_date) {
+        const selectedDate = new Date(form.max_date);
+        
+        // Validate: ensure the date is in the future
+        if (selectedDate.getTime() <= Date.now()) {
+          setError("يجب أن يكون تاريخ نهاية الحملة في المستقبل.");
+          setSaving(false);
+          return;
+        }
+        
+        // Send as ISO string for consistency with backend
+        maxDateToSend = selectedDate.toISOString();
+      }
+      
       await api.put(`/donation-projects/${campaign.id}`, {
         title: form.title.trim(),
         description: form.description.trim(),
+        domain: form.domain || "عام",
+        image_url: form.image_url.trim(),
         goal_amount: Number(form.goal_amount),
-        max_date: form.max_date ? new Date(form.max_date).toISOString() : null,
+        current_amount: Number(form.current_amount),
+        max_date: maxDateToSend,
       });
       await onSaved?.();
     } catch (err) {
@@ -445,36 +503,92 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" dir="rtl">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg text-right shadow-2xl">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-2xl text-right shadow-2xl max-h-[90vh] overflow-y-auto">
         <h3 className="text-white font-bold text-lg mb-4">تعديل الحملة</h3>
-        <div className="space-y-3">
-          <input
-            value={form.title}
-            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-            placeholder="عنوان الحملة"
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
-          />
-          <textarea
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="وصف الحملة"
-            rows={4}
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 resize-none"
-          />
-          <input
-            type="number"
-            min="1"
-            value={form.goal_amount}
-            onChange={(event) => setForm((prev) => ({ ...prev, goal_amount: event.target.value }))}
-            placeholder="المبلغ المستهدف"
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
-          />
-          <input
-            type="datetime-local"
-            value={form.max_date}
-            onChange={(event) => setForm((prev) => ({ ...prev, max_date: event.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-200">عنوان الحملة</label>
+            <input
+              value={form.title}
+              onChange={(event) => updateField("title", event.target.value)}
+              placeholder="عنوان الحملة"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-200">وصف الحملة</label>
+            <textarea
+              value={form.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              placeholder="وصف الحملة"
+              rows={4}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 resize-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">مجال الحملة</label>
+            <select
+              value={form.domain}
+              onChange={(event) => updateField("domain", event.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
+            >
+              {DOMAIN_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">المبلغ المستهدف</label>
+            <input
+              type="number"
+              min="1"
+              value={form.goal_amount}
+              onChange={(event) => updateField("goal_amount", event.target.value)}
+              placeholder="المبلغ المستهدف"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">المبلغ الحالي</label>
+            <input
+              type="number"
+              min="0"
+              value={form.current_amount}
+              onChange={(event) => updateField("current_amount", event.target.value)}
+              placeholder="المبلغ الحالي"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">تاريخ نهاية الحملة</label>
+            <input
+              type="datetime-local"
+              value={form.max_date}
+              onChange={(event) => updateField("max_date", event.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="block text-sm font-semibold text-gray-200">صورة الغلاف</label>
+            <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-700 bg-gray-900/60 px-4 py-5 text-center cursor-pointer hover:border-green-500 transition-colors">
+              <span className="text-3xl">🖼️</span>
+              <span className="text-sm text-gray-300 font-medium">اختر صورة جديدة من الجهاز</span>
+              <span className="text-xs text-gray-500">PNG, JPG, WEBP</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+            </label>
+            <input
+              value={form.image_url}
+              onChange={(event) => { updateField("image_url", event.target.value); setImagePreview(event.target.value); }}
+              placeholder="أو الصق رابط الصورة هنا"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 mt-2"
+            />
+            {imagePreview ? (
+              <img src={imagePreview} alt="معاينة صورة الحملة" className="h-36 w-full rounded-2xl object-cover border border-gray-800 mt-2" />
+            ) : null}
+          </div>
+          <div className="sm:col-span-2 rounded-2xl border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-right text-amber-200 text-xs leading-relaxed">
+            يمكنك تعديل جميع تفاصيل الحملة هنا، وسيتم تحديثها مباشرة في لوحة الإدارة بعد الحفظ.
+          </div>
         </div>
 
         {error ? <p className="text-red-400 text-sm mt-3">{error}</p> : null}

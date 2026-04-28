@@ -54,10 +54,13 @@ export default function FeaturedCampaigns() {
     donors: Number(campaign.donors || campaign.donor_count || 0),
     daysLeft: campaign.max_date ? Math.max(0, Math.ceil((new Date(campaign.max_date) - new Date()) / (1000 * 60 * 60 * 24))) : 0,
     urgent: Boolean(campaign.urgent),
+    expired: campaign.max_date ? new Date(campaign.max_date).getTime() < Date.now() : false,
+    completed: Number(campaign.current_amount || campaign.raised || 0) >= Number(campaign.goal_amount || campaign.goal || 0),
     image: campaign.image_url || campaign.coverImage || campaign.image,
     imageEmoji: campaign.imageEmoji || "💚",
     category: campaign.category || "حملة",
     categoryColor: "bg-green-600",
+    canDonate: Boolean(campaign.canDonate ?? (Number(campaign.goal_amount || campaign.goal || 0) > 0 && Number(campaign.current_amount || campaign.raised || 0) < Number(campaign.goal_amount || campaign.goal || 0) && !(campaign.max_date ? new Date(campaign.max_date).getTime() < Date.now() : false))),
     recentDonors: buildRecentDonors(campaign.donations || campaign.recentDonors || []),
   }));
 
@@ -110,6 +113,7 @@ export default function FeaturedCampaigns() {
 function CampaignCard({ campaign, onDonate }) {
   const progressPercent = campaign.goal > 0 ? Math.round((campaign.raised / campaign.goal) * 100) : 0;
   const deadline = formatDate(campaign.max_date || campaign.end_date || campaign.deadline);
+  const donateLabel = campaign.completed ? 'اكتملت الحملة' : 'انتهت مدة الحملة';
 
   return (
     <div className="bg-gray-900 border border-gray-800 hover:border-green-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-950/40 group">
@@ -167,12 +171,25 @@ function CampaignCard({ campaign, onDonate }) {
             ))}
           </div>
         ) : null}
-        <button
-          onClick={onDonate}
-          className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl text-sm transition-all duration-200 hover:shadow-lg hover:shadow-green-900/40"
-        >
-          تبرع الآن
-        </button>
+        {campaign.canDonate ? (
+          <button
+            onClick={onDonate}
+            className="w-full py-2.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl text-sm transition-all duration-200 hover:shadow-lg hover:shadow-green-900/40"
+          >
+            تبرع الآن
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="w-full py-2.5 bg-gray-800 text-gray-400 font-bold rounded-xl text-sm text-center">
+              {donateLabel}
+            </div>
+            <p className="text-[11px] leading-relaxed text-amber-300 text-right">
+              {campaign.completed
+                ? "اكتملت الحملة، ويمكنك متابعة نتائجها فقط."
+                : "انتهت مدة الحملة، لذلك تم إيقاف التبرع بها."}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

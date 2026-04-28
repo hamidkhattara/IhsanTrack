@@ -5,10 +5,13 @@ import { fileToDataUrl } from "../../utils/fileToDataUrl";
 const EMPTY_FORM = {
   title: "",
   description: "",
+  domain: "عام",
   image_url: "",
   goal_amount: "",
   max_date: "",
 };
+
+const DOMAIN_OPTIONS = ["عام", "صحة", "تعليم", "إغاثة", "أيتام", "رمضان"];
 
 export default function CreateCampaignForm({ onCreated, onCancel }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -52,6 +55,8 @@ export default function CreateCampaignForm({ onCreated, onCancel }) {
       const parsed = new Date(form.max_date);
       if (Number.isNaN(parsed.getTime())) {
         errs.max_date = "تاريخ النهاية غير صالح";
+      } else if (parsed <= new Date()) {
+        errs.max_date = "يجب أن يكون تاريخ النهاية في المستقبل";
       }
     }
 
@@ -67,6 +72,8 @@ export default function CreateCampaignForm({ onCreated, onCancel }) {
       id: campaign.id,
       title: campaign.title,
       image: campaign.image_url,
+      domain: campaign.domain || "عام",
+      category: campaign.domain || "عام",
       imageEmoji: "💚",
       donors: 0,
       raised,
@@ -92,6 +99,7 @@ export default function CreateCampaignForm({ onCreated, onCancel }) {
       const payload = {
         title: form.title.trim(),
         description: form.description.trim(),
+        domain: form.domain || "عام",
         image_url: form.image_url.trim(),
         goal_amount: Number(form.goal_amount),
         current_amount: 0,
@@ -164,6 +172,21 @@ export default function CreateCampaignForm({ onCreated, onCancel }) {
           </div>
 
           <div className="space-y-1.5">
+            <label className="block text-sm font-semibold text-gray-200">مجال الحملة</label>
+            <select
+              value={form.domain}
+              onChange={(e) => update("domain", e.target.value)}
+              className={`${inputCls(errors.domain)} cursor-pointer`}
+              dir="rtl"
+            >
+              {DOMAIN_OPTIONS.map((domain) => (
+                <option key={domain} value={domain}>{domain}</option>
+              ))}
+            </select>
+            {errors.domain ? <p className="text-red-400 text-xs">{errors.domain}</p> : null}
+          </div>
+
+          <div className="space-y-1.5">
             <label className="block text-sm font-semibold text-gray-200">
               صورة الغلاف من الجهاز<span className="text-green-400 mr-1">*</span>
             </label>
@@ -206,6 +229,9 @@ export default function CreateCampaignForm({ onCreated, onCancel }) {
               dir="ltr"
             />
             {errors.max_date ? <p className="text-red-400 text-xs">{errors.max_date}</p> : null}
+            <p className="text-gray-500 text-xs leading-relaxed">
+              عند انتهاء التاريخ، ستُخفى الحملة تلقائياً من القوائم مثل الحملة المكتملة.
+            </p>
           </div>
         </div>
 

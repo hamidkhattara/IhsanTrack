@@ -26,6 +26,7 @@
  *   updateField — (field, value) => void
  */
 import { useState } from "react";
+import { ASSOCIATION_LOCATIONS } from "../../utils/associationOptions";
 
 export default function AssocEditLocation({ formData, updateField }) {
   const [locating, setLocating] = useState(false);
@@ -54,19 +55,22 @@ export default function AssocEditLocation({ formData, updateField }) {
 
       <div className="p-6 space-y-5">
 
-        {/* العنوان */}
+        {/* المدينة / الولاية */}
         <div className="space-y-1.5 text-right">
           <label className="block text-sm font-semibold text-gray-200">
-            العنوان<span className="text-green-400 mr-1">*</span>
+            المدينة / الولاية<span className="text-green-400 mr-1">*</span>
           </label>
-          <input
-            type="text"
+          <select
             value={formData.address}
             onChange={(e) => updateField("address", e.target.value)}
-            placeholder="مثال: حي التوتي 2، بلوك 7، باب الزوار، الجزائر"
             className={inputCls}
             dir="rtl"
-          />
+          >
+            <option value="">اختر المدينة</option>
+            {ASSOCIATION_LOCATIONS.map((location) => (
+              <option key={location} value={location}>{location}</option>
+            ))}
+          </select>
         </div>
 
         {/* تحديد الموقع */}

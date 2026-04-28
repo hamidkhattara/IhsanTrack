@@ -6,6 +6,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import AuthTopBar from '../Components/auth/AuthTopBar';
 import { fileToDataUrl } from '../utils/fileToDataUrl';
+import { ASSOCIATION_FIELDS, ASSOCIATION_LOCATIONS } from '../utils/associationOptions';
 
 const Assoc_sign_up = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const Assoc_sign_up = () => {
     phone_number: '',
     opening_hours: '',
     social_media_links: '',
+    fields: [],
     agreed_to_tos: false,
   });
 
@@ -45,6 +47,17 @@ const Assoc_sign_up = () => {
   const onChange = (field) => (e) => {
     const value = field === 'agreed_to_tos' ? e.target.checked : e.target.value;
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleField = (fieldId) => {
+    setFormData((prev) => {
+      const currentFields = Array.isArray(prev.fields) ? prev.fields : [];
+      const nextFields = currentFields.includes(fieldId)
+        ? currentFields.filter((value) => value !== fieldId)
+        : [...currentFields, fieldId];
+
+      return { ...prev, fields: nextFields };
+    });
   };
 
   const handleLogoUpload = async (event) => {
@@ -105,7 +118,8 @@ const Assoc_sign_up = () => {
     if (formData.name.trim().length < 2) return 'اسم الجمعية مطلوب.';
     if (formData.description.trim().length < 10) return 'وصف الجمعية يجب أن يكون 10 أحرف على الأقل.';
     if (!formData.logo_url.trim()) return 'صورة شعار الجمعية مطلوبة.';
-    if (!formData.wilaya.trim()) return 'الولاية مطلوبة.';
+    if (!formData.wilaya.trim()) return 'المدينة / الولاية مطلوبة.';
+    if (!Array.isArray(formData.fields) || formData.fields.length === 0) return 'اختر مجالاً واحداً على الأقل للجمعية.';
     if (!/^https?:\/\//.test(formData.Maps_link)) return 'رابط الخريطة يجب أن يكون URL صالح.';
     if (formData.phone_number.trim().length < 8) return 'رقم هاتف الجمعية غير صالح.';
     if (!formData.agreed_to_tos) return 'يجب الموافقة على الشروط للمتابعة.';
@@ -144,6 +158,7 @@ const Assoc_sign_up = () => {
         wilaya: formData.wilaya.trim(),
         Maps_link: formData.Maps_link.trim(),
         phone_number: formData.phone_number.trim(),
+        fields: formData.fields,
         social_media_links: parseSocialLinks(formData.social_media_links),
         opening_hours: formData.opening_hours.trim() || undefined,
         agreed_to_tos: formData.agreed_to_tos,
@@ -290,6 +305,32 @@ const Assoc_sign_up = () => {
                 </div>
 
                 <div>
+                  <p className="mb-2 text-sm text-gray-300">مجالات عمل الجمعية</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {ASSOCIATION_FIELDS.map((field) => {
+                      const active = formData.fields.includes(field.id);
+                      return (
+                        <button
+                          key={field.id}
+                          type="button"
+                          onClick={() => toggleField(field.id)}
+                          className={`flex items-center justify-between rounded-xl border px-3 py-2 text-right text-sm transition-all duration-200 ${
+                            active
+                              ? 'border-green-500 bg-green-600/20 text-green-200'
+                              : 'border-gray-700 bg-gray-950/60 text-gray-300 hover:border-gray-500'
+                          }`}
+                        >
+                          <span>{field.label}</span>
+                          <span className={`text-xs ${active ? 'text-green-300' : 'text-gray-500'}`}>
+                            {active ? '✓' : '+'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
                   <p className="mb-2 text-sm text-gray-300">شعار الجمعية</p>
                   <label className="w-full rounded-2xl border border-dashed border-gray-700 bg-white/5 hover:border-green-500 transition-colors cursor-pointer px-4 py-4 text-center block">
             <div className="flex flex-col items-center gap-2">
@@ -304,8 +345,13 @@ const Assoc_sign_up = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <p className="mb-2 text-sm text-gray-300">الولاية</p>
-                    <input type="text" value={formData.wilaya} onChange={onChange('wilaya')} placeholder="مثال: الجزائر" className="w-full h-11 px-4 text-sm text-white border border-gray-700 rounded-xl bg-gray-950/60 placeholder-gray-600 focus:border-green-500 outline-none" />
+                    <p className="mb-2 text-sm text-gray-300">المدينة / الولاية</p>
+                    <select value={formData.wilaya} onChange={onChange('wilaya')} className="w-full h-11 px-4 text-sm text-white border border-gray-700 rounded-xl bg-gray-950/60 focus:border-green-500 outline-none" dir="rtl">
+                      <option value="">اختر المدينة</option>
+                      {ASSOCIATION_LOCATIONS.map((location) => (
+                        <option key={location} value={location}>{location}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <p className="mb-2 text-sm text-gray-300">هاتف الجمعية</p>

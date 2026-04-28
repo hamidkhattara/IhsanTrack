@@ -1,3 +1,7 @@
+import { ASSOCIATION_FIELDS } from "../../utils/associationOptions";
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
+import { FiGlobe } from "react-icons/fi";
+
 /**
  * AssocEditSidebar.jsx
  *
@@ -23,8 +27,17 @@
  *   formData    — current form state
  *   updateField — (field, value) => void
  */
-export default function AssocEditSidebar({ formData, updateField }) {
+export default function AssocEditSidebar({ formData, updateField, socialErrors = {} }) {
   const completion = formData.profileCompletion ?? 86;
+  const selectedFields = Array.isArray(formData.fields) ? formData.fields : [];
+
+  const toggleField = (fieldId) => {
+    const nextFields = selectedFields.includes(fieldId)
+      ? selectedFields.filter((value) => value !== fieldId)
+      : [...selectedFields, fieldId];
+
+    updateField("fields", nextFields);
+  };
 
   return (
     <>
@@ -80,9 +93,16 @@ export default function AssocEditSidebar({ formData, updateField }) {
               { label: "البريد الإلكتروني", done: !!formData.email },
               { label: "وصف الجمعية", done: formData.description?.length >= 50 },
               { label: "الموقع الجغرافي", done: !!formData.address },
+              { label: "مجالات العمل", done: selectedFields.length > 0 },
               {
                 label: "روابط التواصل",
-                done: !!(formData.facebook?.trim() || formData.instagram?.trim() || formData.website?.trim()),
+                done: !!(
+                  formData.facebook?.trim() ||
+                  formData.instagram?.trim() ||
+                  formData.twitter?.trim() ||
+                  formData.linkedin?.trim() ||
+                  formData.website?.trim()
+                ),
               },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-end gap-2">
@@ -110,31 +130,86 @@ export default function AssocEditSidebar({ formData, updateField }) {
 
           {/* Facebook */}
           <SocialInput
-            icon={<span className="font-black text-blue-400 text-sm">f</span>}
+            icon={<FaFacebookF className="text-blue-400 text-sm" />}
             placeholder="https://facebook.com/your-page"
             value={formData.facebook}
             onChange={(v) => updateField("facebook", v)}
             label="فيسبوك"
+            error={socialErrors.facebook}
           />
 
           {/* Instagram */}
           <SocialInput
-            icon={<span className="text-pink-400 text-sm">📷</span>}
+            icon={<FaInstagram className="text-pink-400 text-sm" />}
             placeholder="https://instagram.com/your-page"
             value={formData.instagram}
             onChange={(v) => updateField("instagram", v)}
             label="إنستغرام"
+            error={socialErrors.instagram}
+          />
+
+          <SocialInput
+            icon={<FaXTwitter className="text-gray-200 text-sm" />}
+            placeholder="https://x.com/your-page"
+            value={formData.twitter}
+            onChange={(v) => updateField("twitter", v)}
+            label="X / Twitter"
+            error={socialErrors.twitter}
+          />
+
+          <SocialInput
+            icon={<FaLinkedinIn className="text-sky-400 text-sm" />}
+            placeholder="https://linkedin.com/company/your-page"
+            value={formData.linkedin}
+            onChange={(v) => updateField("linkedin", v)}
+            label="LinkedIn"
+            error={socialErrors.linkedin}
           />
 
           {/* Website */}
           <SocialInput
-            icon={<span className="text-green-400 text-sm">🌐</span>}
+            icon={<FiGlobe className="text-green-400 text-sm" />}
             placeholder="https://your-website.dz"
             value={formData.website}
             onChange={(v) => updateField("website", v)}
             label="الموقع الإلكتروني"
+            error={socialErrors.website}
           />
 
+        </div>
+      </div>
+
+      {/* ── Card 3: مجالات العمل ── */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mt-5">
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-b border-gray-800">
+          <h3 className="text-white font-bold text-sm">مجالات العمل</h3>
+          <span className="text-green-400 text-base">🎯</span>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-gray-400 text-right">اختر مجالاً واحداً أو أكثر ليظهر في الفلترة والملف العام.</p>
+          <div className="grid grid-cols-1 gap-2">
+            {ASSOCIATION_FIELDS.map((field) => {
+              const active = selectedFields.includes(field.id);
+              return (
+                <button
+                  key={field.id}
+                  type="button"
+                  onClick={() => toggleField(field.id)}
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-right text-sm transition-all duration-200 ${
+                    active
+                      ? "border-green-500 bg-green-600/20 text-green-200"
+                      : "border-gray-700 bg-gray-950/60 text-gray-300 hover:border-gray-500"
+                  }`}
+                >
+                  <span>{field.label}</span>
+                  <span className={`text-xs ${active ? "text-green-300" : "text-gray-500"}`}>
+                    {active ? "✓" : "+"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </>
@@ -144,7 +219,7 @@ export default function AssocEditSidebar({ formData, updateField }) {
 /**
  * SocialInput — icon-prefixed URL input (local helper)
  */
-function SocialInput({ icon, placeholder, value, onChange, label }) {
+function SocialInput({ icon, placeholder, value, onChange, label, error }) {
   return (
     <div className="space-y-1 text-right">
       <label className="text-xs font-semibold text-gray-400">{label}</label>
@@ -154,13 +229,18 @@ function SocialInput({ icon, placeholder, value, onChange, label }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-gray-800 border border-gray-700 hover:border-gray-600 focus:border-green-500 focus:ring-1 focus:ring-green-500/30 text-white placeholder-gray-600 text-xs rounded-xl pl-10 pr-3 py-2.5 outline-none transition-all duration-200"
+          className={`w-full bg-gray-800 border text-white placeholder-gray-600 text-xs rounded-xl pl-10 pr-3 py-2.5 outline-none transition-all duration-200 ${
+            error
+              ? "border-red-500/70 focus:border-red-400 focus:ring-1 focus:ring-red-500/30"
+              : "border-gray-700 hover:border-gray-600 focus:border-green-500 focus:ring-1 focus:ring-green-500/30"
+          }`}
           dir="ltr"
         />
         <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
           {icon}
         </div>
       </div>
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>
   );
 }

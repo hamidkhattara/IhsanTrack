@@ -58,9 +58,12 @@ const emptyFormData = {
   lng: 3.0588,
   facebook: "",
   instagram: "",
+  twitter: "",
+  linkedin: "",
   website: "",
   mapLink: "",
   openingHours: "",
+  fields: [],
   coverImage: null,
   logoImage: null,
   profileCompletion: 0,
@@ -68,9 +71,38 @@ const emptyFormData = {
   accountType: "حساب جمعية",
 };
 
+const SOCIAL_HOST_RULES = {
+  facebook: ["facebook.com", "www.facebook.com", "m.facebook.com"],
+  instagram: ["instagram.com", "www.instagram.com"],
+  twitter: ["x.com", "www.x.com", "twitter.com", "www.twitter.com"],
+  linkedin: ["linkedin.com", "www.linkedin.com"],
+};
+
+function isValidUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function isValidSocialLink(platform, value) {
+  if (!value) return true;
+  if (!isValidUrl(value)) return false;
+  const hostname = new URL(value).hostname.toLowerCase();
+  const allowedHosts = SOCIAL_HOST_RULES[platform];
+  if (!allowedHosts) return true;
+  return allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+}
+
 function calculateProfileCompletion(next) {
   const hasSocialLink = Boolean(
-    next.facebook?.trim() || next.instagram?.trim() || next.website?.trim()
+    next.facebook?.trim() ||
+    next.instagram?.trim() ||
+    next.twitter?.trim() ||
+    next.linkedin?.trim() ||
+    next.website?.trim()
   );
   const checks = [
     Boolean(next.logoImage),
@@ -78,6 +110,7 @@ function calculateProfileCompletion(next) {
     Boolean(next.email),
     (next.description || "").length >= 50,
     Boolean(next.address),
+    Array.isArray(next.fields) && next.fields.length > 0,
     hasSocialLink,
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
@@ -88,6 +121,7 @@ export default function AssocEditProfilePage() {
   const [initialFormData, setInitialFormData] = useState(emptyFormData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [socialErrors, setSocialErrors] = useState({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -121,10 +155,13 @@ export default function AssocEditProfilePage() {
           lng: 3.0588,
           facebook: socialLinks.facebook || "",
           instagram: socialLinks.instagram || "",
+          twitter: socialLinks.twitter || "",
+          linkedin: socialLinks.linkedin || "",
           website: socialLinks.website || "",
           mapLink: association.Maps_link || "",
           openingHours: association.opening_hours || "",
-          coverImage: null,
+          fields: Array.isArray(association.fields) ? association.fields : [],
+          coverImage: association.cover_image_url || null,
           logoImage: association.logo_url || null,
           profileCompletion: 0,
           accountStatus: me.is_email_verified ? "موثق" : "غير موثق",
@@ -162,27 +199,84 @@ export default function AssocEditProfilePage() {
       next.profileCompletion = calculateProfileCompletion(next);
       return next;
     });
+
+    if (["facebook", "instagram", "twitter", "linkedin", "website"].includes(field)) {
+      setSocialErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+
     setSaved(false);
   };
 
   const handleSave = async () => {
+    if (!formData.address?.trim()) {
+      setError("اختر المدينة / الولاية قبل حفظ التغييرات.");
+      return;
+    }
+
+    if (!Array.isArray(formData.fields) || formData.fields.length === 0) {
+      setError("اختر مجالاً واحداً على الأقل قبل حفظ التغييرات.");
+      return;
+    }
+
     setSaving(true);
     setError("");
+    setSocialErrors({});
 
     try {
+      const facebook = formData.facebook?.trim() || "";
+      const instagram = formData.instagram?.trim() || "";
+      const twitter = formData.twitter?.trim() || "";
+      const linkedin = formData.linkedin?.trim() || "";
+      const website = formData.website?.trim() || "";
+
+      if (!isValidSocialLink("facebook", facebook)) {
+        setSocialErrors({ facebook: "رابط فيسبوك غير صالح. استخدم رابطاً من facebook.com" });
+        setError("تحقق من روابط التواصل الاجتماعي.");
+        setSaving(false);
+        return;
+      }
+      if (!isValidSocialLink("instagram", instagram)) {
+        setSocialErrors({ instagram: "رابط إنستغرام غير صالح. استخدم رابطاً من instagram.com" });
+        setError("تحقق من روابط التواصل الاجتماعي.");
+        setSaving(false);
+        return;
+      }
+      if (!isValidSocialLink("twitter", twitter)) {
+        setSocialErrors({ twitter: "رابط X / Twitter غير صالح. استخدم رابطاً من x.com أو twitter.com" });
+        setError("تحقق من روابط التواصل الاجتماعي.");
+        setSaving(false);
+        return;
+      }
+      if (!isValidSocialLink("linkedin", linkedin)) {
+        setSocialErrors({ linkedin: "رابط LinkedIn غير صالح. استخدم رابطاً من linkedin.com" });
+        setError("تحقق من روابط التواصل الاجتماعي.");
+        setSaving(false);
+        return;
+      }
+      if (website && !isValidUrl(website)) {
+        setSocialErrors({ website: "رابط الموقع الإلكتروني غير صالح." });
+        setError("تحقق من روابط التواصل الاجتماعي.");
+        setSaving(false);
+        return;
+      }
+
       const social_media_links = {};
-      if (formData.facebook?.trim()) social_media_links.facebook = formData.facebook.trim();
-      if (formData.instagram?.trim()) social_media_links.instagram = formData.instagram.trim();
-      if (formData.website?.trim()) social_media_links.website = formData.website.trim();
+      if (facebook) social_media_links.facebook = facebook;
+      if (instagram) social_media_links.instagram = instagram;
+      if (twitter) social_media_links.twitter = twitter;
+      if (linkedin) social_media_links.linkedin = linkedin;
+      if (website) social_media_links.website = website;
 
       await api.put(`/associations/${formData.id}`, {
         name: formData.name.trim(),
         description: formData.description.trim(),
         logo_url: formData.logoImage || undefined,
+        cover_image_url: formData.coverImage || undefined,
         wilaya: formData.address.trim(),
         Maps_link: formData.mapLink?.trim() || undefined,
         phone_number: formData.phone.trim(),
         opening_hours: formData.openingHours?.trim() || undefined,
+        fields: Array.isArray(formData.fields) ? formData.fields : [],
         social_media_links: Object.keys(social_media_links).length ? social_media_links : undefined,
       });
 
@@ -196,6 +290,25 @@ export default function AssocEditProfilePage() {
     } catch (err) {
       const details = err?.response?.data?.details;
       const firstDetail = Array.isArray(details) && details.length ? details[0]?.message : "";
+
+      if (Array.isArray(details)) {
+        const mappedSocialErrors = details.reduce((acc, issue) => {
+          const field = issue?.field || "";
+          if (field === "social_media_links.facebook") acc.facebook = issue?.message || "رابط فيسبوك غير صالح";
+          if (field === "social_media_links.instagram") acc.instagram = issue?.message || "رابط إنستغرام غير صالح";
+          if (field === "social_media_links.twitter") acc.twitter = issue?.message || "رابط X / Twitter غير صالح";
+          if (field === "social_media_links.linkedin") acc.linkedin = issue?.message || "رابط LinkedIn غير صالح";
+          if (field === "social_media_links.website") acc.website = issue?.message || "رابط الموقع الإلكتروني غير صالح";
+          return acc;
+        }, {});
+
+        if (Object.keys(mappedSocialErrors).length > 0) {
+          setSocialErrors(mappedSocialErrors);
+          setError("بعض روابط التواصل غير مقبولة. صححها ثم أعد الحفظ.");
+          return;
+        }
+      }
+
       setError(firstDetail || err?.response?.data?.error || "تعذر حفظ التغييرات.");
     } finally {
       setSaving(false);
@@ -206,6 +319,7 @@ export default function AssocEditProfilePage() {
     setFormData(initialFormData);
     setSaved(false);
     setError("");
+    setSocialErrors({});
   };
 
   const pageContent = useMemo(() => {
@@ -225,7 +339,7 @@ export default function AssocEditProfilePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             <div className="lg:col-span-1 lg:order-2 space-y-5">
-              <AssocEditSidebar formData={formData} updateField={updateField} />
+              <AssocEditSidebar formData={formData} updateField={updateField} socialErrors={socialErrors} />
             </div>
 
             <div className="lg:col-span-2 lg:order-1 space-y-5">
@@ -237,7 +351,7 @@ export default function AssocEditProfilePage() {
         </div>
       </>
     );
-  }, [error, formData, loading]);
+  }, [error, formData, loading, socialErrors]);
 
   return (
     <div className="font-arabic min-h-screen bg-gray-950 text-white" dir="rtl">

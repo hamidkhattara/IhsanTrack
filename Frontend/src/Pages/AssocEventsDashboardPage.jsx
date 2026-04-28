@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssocDashboardNavbar from "../Components/dashboard/AssocDashboardNavbar";
 import DashboardFooter from "../Components/dashboard/DashboardFooter";
 import AssociationActivityPanel from "../Components/dashboard/AssociationActivityPanel";
@@ -54,11 +54,28 @@ import { useAuth } from "../context/AuthContext";
 export default function AssocEventsDashboardPage() {
   const { user, isAuthenticated, authLoading } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const createSectionRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null); // for volunteers drawer
   const [volunteers, setVolunteers] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const scrollToCreateSection = () => {
+    const element = createSectionRef.current;
+    if (!element) return;
+
+    const stickyHeaderOffset = 110;
+    const top = window.pageYOffset + element.getBoundingClientRect().top - stickyHeaderOffset;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
+
+  const handleOpenCreateForm = () => {
+    setShowCreateForm(true);
+    setTimeout(() => {
+      scrollToCreateSection();
+    }, 0);
+  };
 
   const eventStats = useMemo(() => {
     const now = Date.now();
@@ -157,7 +174,7 @@ export default function AssocEventsDashboardPage() {
               {/* Left: create button */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowCreateForm((v) => !v)}
+                  onClick={handleOpenCreateForm}
                   className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-900/40"
                 >
                   <span className="text-base leading-none">+</span>
@@ -181,6 +198,8 @@ export default function AssocEventsDashboardPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           <EventsDashboardStats stats={eventStats} />
           <AssociationActivityPanel requests={recentRequests} />
+
+          <div ref={createSectionRef} />
 
           {showCreateForm && (
             <CreateEventForm

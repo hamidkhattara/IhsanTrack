@@ -44,7 +44,7 @@ const Navbar = () => {
         </nav>
       </div>
       <div className='flex mr-50 mt-4 gap-4 items-center'>
-       <NavLink className="text-white transition-transform duration-300 bg-[#10B77F] hover:scale-103 h-10 w-27 pr-6 pt-1 rounded-lg text-lg" to='/donate'>تبرع الان</NavLink>
+       <NavLink className="text-white transition-transform duration-300 bg-[#10B77F] hover:scale-103 h-10 w-27 pr-6 pt-1 rounded-lg text-lg" to='/campaigns'>تبرع الان</NavLink>
 
        {isAuthenticated ? (
          <div className="relative">

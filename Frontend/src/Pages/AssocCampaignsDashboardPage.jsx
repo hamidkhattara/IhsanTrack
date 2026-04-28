@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssocDashboardNavbar from "../Components/dashboard/AssocDashboardNavbar";
 import DashboardFooter from "../Components/dashboard/DashboardFooter";
 import AssociationActivityPanel from "../Components/dashboard/AssociationActivityPanel";
@@ -46,14 +46,34 @@ import { useAuth } from "../context/AuthContext";
 export default function AssocCampaignsDashboardPage() {
   const { user, isAuthenticated, authLoading } = useAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const createSectionRef = useRef(null);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const scrollToCreateSection = () => {
+    const element = createSectionRef.current;
+    if (!element) return;
+
+    const stickyHeaderOffset = 110;
+    const top = window.pageYOffset + element.getBoundingClientRect().top - stickyHeaderOffset;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
+
+  const handleOpenCreateForm = () => {
+    setShowCreateForm(true);
+    setTimeout(() => {
+      scrollToCreateSection();
+    }, 0);
+  };
 
   const campaignStats = useMemo(() => {
     const totalRaised = campaigns.reduce((sum, campaign) => sum + Number(campaign.raised || 0), 0);
     const activeCampaigns = campaigns.filter((campaign) => campaign.status === "نشطة").length;
     const completedCampaigns = campaigns.filter((campaign) => campaign.status === "مكتملة").length;
+    // total donations (count of donation records) across all campaigns
+    const totalDonations = campaigns.reduce((sum, campaign) => sum + (Number(campaign.donors) || 0), 0);
+    // unique donor users across campaigns (ignores anonymous donations without user ids)
     const uniqueDonors = new Set(
       campaigns.flatMap((campaign) => (campaign.donationUserIds || []).filter(Boolean))
     ).size;
@@ -64,6 +84,7 @@ export default function AssocCampaignsDashboardPage() {
       activeCampaigns,
       completedCampaigns,
       uniqueDonors,
+      totalDonations,
     };
   }, [campaigns]);
 
@@ -147,7 +168,7 @@ export default function AssocCampaignsDashboardPage() {
                 </button>
                 {/* Create new campaign */}
                 <button
-                  onClick={() => setShowCreateForm((v) => !v)}
+                  onClick={handleOpenCreateForm}
                   className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-900/40"
                 >
                   <span className="text-base leading-none">+</span>
@@ -173,6 +194,8 @@ export default function AssocCampaignsDashboardPage() {
           <CampaignsDashboardStats stats={campaignStats} />
           <AssociationActivityPanel donations={recentDonations} />
 
+          <div ref={createSectionRef} />
+
           {/* Create campaign form (toggle) */}
           {showCreateForm && (
             <CreateCampaignForm
@@ -197,10 +220,30 @@ function mapCampaignRow(campaign) {
   const raised = Number(campaign.current_amount || 0);
   const goal = Number(campaign.goal_amount || 0);
   const progress = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+  
+  // Calculate deadline expiry with robust date handling
+  let isExpired = false;
+  if (campaign.max_date) {
+    try {
+      const deadline = new Date(campaign.max_date);
+      // Only consider valid dates for expiry check
+      if (!Number.isNaN(deadline.getTime())) {
+        isExpired = deadline.getTime() < Date.now();
+      }
+    } catch (err) {
+      console.warn("Failed to parse max_date:", campaign.max_date, err);
+      isExpired = false;
+    }
+  }
+  // Build a robust list of donor user IDs — backend may return different key shapes
+  // Build donor lists and counts
   const donationUserIds = Array.isArray(campaign.donations)
-    ? campaign.donations.map((donation) => donation.user_id)
+    ? campaign.donations
+        .map((donation) => donation.user_id ?? donation.userId ?? donation.donor?.id ?? donation.donor_id)
+        .filter(Boolean)
     : [];
-  const donors = new Set(donationUserIds.filter(Boolean)).size;
+  // Number of donation records (includes anonymous donors)
+  const donors = Array.isArray(campaign.donations) ? campaign.donations.length : 0;
   const donations = Array.isArray(campaign.donations)
     ? campaign.donations.map((donation) => ({
         id: donation.id,
@@ -216,6 +259,7 @@ function mapCampaignRow(campaign) {
     id: campaign.id,
     title: campaign.title,
     description: campaign.description || "",
+    domain: campaign.domain || "عام",
     image: campaign.image_url,
     image_url: campaign.image_url,
     imageEmoji: "🍱",
@@ -225,8 +269,8 @@ function mapCampaignRow(campaign) {
     goal,
     maxDate: campaign.max_date || null,
     progress,
-    status: progress >= 100 ? "مكتملة" : "نشطة",
-    statusColor: progress >= 100 ? "blue" : "green",
+    status: progress >= 100 ? "مكتملة" : isExpired ? "منتهية" : "نشطة",
+    statusColor: progress >= 100 ? "blue" : isExpired ? "red" : "green",
     createdAt: campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString("ar-DZ") : "الآن",
     donations,
   };

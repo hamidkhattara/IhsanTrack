@@ -16,29 +16,41 @@
  * Props: assoc (association object)
  */
 export default function AssocStatsBar({ assoc }) {
+  const formatCompact = (value) => {
+    const safeValue = Number(value || 0);
+    return new Intl.NumberFormat("en", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(safeValue);
+  };
+
   const stats = [
     {
-      value: assoc.followers,
-      label: "متابع",
-      icon: "👥",
+      id: "total-campaigns",
+      value: formatCompact(assoc?.stats?.totalCampaigns),
+      label: "إجمالي الحملات",
+      icon: "📋",
       color: "text-green-400",
     },
     {
-      value: assoc.projects,
-      label: "مشروع",
-      icon: "📋",
+      id: "total-events",
+      value: formatCompact(assoc?.stats?.totalEvents),
+      label: "إجمالي الفعاليات",
+      icon: "📅",
       color: "text-blue-400",
     },
     {
-      value: assoc.volunteers,
+      id: "total-volunteers",
+      value: formatCompact(assoc?.stats?.totalVolunteers),
       label: "متطوع",
       icon: "🤝",
       color: "text-yellow-400",
     },
     {
-      value: assoc.yearsActive,
-      label: "سنة نشاط",
-      icon: "🏆",
+      id: "total-raised",
+      value: `${formatCompact(assoc?.stats?.totalRaised)} دج`,
+      label: "قيمة التبرعات",
+      icon: "💰",
       color: "text-orange-400",
     },
   ];
@@ -46,9 +58,9 @@ export default function AssocStatsBar({ assoc }) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {stats.map((stat, i) => (
+        {stats.map((stat) => (
           <div
-            key={i}
+            key={stat.id}
             className="bg-gray-900 border border-gray-800 hover:border-green-800/60 rounded-2xl px-5 py-4 text-center transition-all duration-300 hover:-translate-y-0.5 group"
           >
             <div className="text-2xl mb-1">{stat.icon}</div>

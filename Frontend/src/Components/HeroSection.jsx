@@ -76,7 +76,7 @@ export default function HeroSection() {
                 تبرع الآن
               </Link>
               <Link
-                to="/register?type=association"
+                to="/assoc_sign_up"
                 className="px-8 py-3.5 bg-transparent border-2 border-green-600 text-green-400 hover:bg-green-600 hover:text-white font-bold rounded-xl transition-all duration-300 text-base"
               >
                 ابدأ حملة

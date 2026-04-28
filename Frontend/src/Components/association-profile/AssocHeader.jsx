@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
+import { FiGlobe } from "react-icons/fi";
 
 /**
  * AssocHeader.jsx
@@ -20,6 +22,14 @@ import { Link } from "react-router-dom";
  */
 export default function AssocHeader({ assoc }) {
   const [following, setFollowing] = useState(false);
+  const socialLinks = assoc?.socialLinks || {};
+  const socialItems = [
+    { id: "facebook", href: socialLinks?.facebook || "", icon: FaFacebookF, label: "Facebook", hover: "hover:bg-blue-700 hover:border-blue-600" },
+    { id: "instagram", href: socialLinks?.instagram || "", icon: FaInstagram, label: "Instagram", hover: "hover:bg-pink-700 hover:border-pink-600" },
+    { id: "twitter", href: socialLinks?.twitter || "", icon: FaXTwitter, label: "X", hover: "hover:bg-slate-700 hover:border-slate-500" },
+    { id: "linkedin", href: socialLinks?.linkedin || "", icon: FaLinkedinIn, label: "LinkedIn", hover: "hover:bg-blue-800 hover:border-blue-700" },
+    { id: "website", href: socialLinks?.website || "", icon: FiGlobe, label: "Website", hover: "hover:bg-gray-700 hover:border-gray-500" },
+  ].filter((item) => item.href);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -29,16 +39,16 @@ export default function AssocHeader({ assoc }) {
           {/* Logo circle — overlaps hero banner */}
           <div className="relative shrink-0">
             <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl border-4 border-gray-950 bg-green-800 shadow-xl shadow-green-950/60 flex items-center justify-center overflow-hidden">
-              {assoc.logoImage ? (
-                <img src={assoc.logoImage} alt={assoc.name} className="w-full h-full object-cover" />
+              {assoc?.logoImage ? (
+                <img src={assoc.logoImage} alt={assoc?.name || "Association"} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-3xl sm:text-4xl font-black text-white select-none">
-                  {assoc.name.charAt(0)}
+                  {(assoc?.name || "ج").charAt(0)}
                 </span>
               )}
             </div>
             {/* Verified badge on logo */}
-            {assoc.verified && (
+            {assoc?.verified && (
               <div className="absolute -bottom-1 -left-1 w-6 h-6 bg-green-500 rounded-full border-2 border-gray-950 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">✓</span>
               </div>
@@ -48,23 +58,23 @@ export default function AssocHeader({ assoc }) {
           {/* Name + meta */}
           <div className="flex-1 pb-1 text-right">
             <div className="flex items-center gap-2 justify-end flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white">{assoc.name}</h1>
-              {assoc.verified && (
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white">{assoc?.name || "جمعية"}</h1>
+              {assoc?.verified && (
                 <span className="inline-flex items-center gap-1 bg-green-600/20 border border-green-600/40 text-green-400 text-xs font-semibold px-2 py-0.5 rounded-full">
                   <span>✓</span> موثوق
                 </span>
               )}
             </div>
-            <p className="text-gray-400 text-sm mt-0.5">{assoc.tagline}</p>
+            <p className="text-gray-400 text-sm mt-0.5 wrap-break-word">{assoc?.tagline || ""}</p>
             <div className="flex items-center gap-2 justify-end mt-2 flex-wrap">
               <span className="text-xs text-gray-500 flex items-center gap-1">
-                <span>📍</span>{assoc.location}
+                <span>📍</span>{assoc?.location || "الجزائر"}
               </span>
               <span className="text-xs bg-green-900/50 border border-green-800/50 text-green-300 px-2 py-0.5 rounded-full">
-                {assoc.category}
+                {assoc?.category || "جمعية"}
               </span>
               <span className="text-xs text-gray-500">
-                🗓️ منذ {assoc.founded}
+                🗓️ منذ {assoc?.founded || "-"}
               </span>
             </div>
           </div>
@@ -73,39 +83,21 @@ export default function AssocHeader({ assoc }) {
           <div className="sm:pb-2 shrink-0 w-full sm:w-auto">
             <div className="flex flex-col gap-2 items-end">
               <div className="flex items-center gap-2">
-                {assoc.socialLinks?.facebook && (
-                  <a
-                    href={assoc.socialLinks.facebook}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-gray-900 hover:bg-blue-700 border border-gray-700 hover:border-blue-600 rounded-xl flex items-center justify-center text-gray-300 hover:text-white text-xs font-bold transition-all duration-200"
-                    aria-label="Facebook"
-                  >
-                    f
-                  </a>
-                )}
-                {assoc.socialLinks?.instagram && (
-                  <a
-                    href={assoc.socialLinks.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-gray-900 hover:bg-pink-700 border border-gray-700 hover:border-pink-600 rounded-xl flex items-center justify-center text-gray-300 hover:text-white text-xs transition-all duration-200"
-                    aria-label="Instagram"
-                  >
-                    📷
-                  </a>
-                )}
-                {assoc.socialLinks?.website && (
-                  <a
-                    href={assoc.socialLinks.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 bg-gray-900 hover:bg-gray-700 border border-gray-700 rounded-xl flex items-center justify-center text-gray-300 hover:text-white text-xs transition-all duration-200"
-                    aria-label="Website"
-                  >
-                    🌐
-                  </a>
-                )}
+                {socialItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-9 h-9 bg-gray-900 border border-gray-700 rounded-xl flex items-center justify-center text-gray-300 hover:text-white text-xs transition-all duration-200 ${item.hover}`}
+                      aria-label={item.label}
+                    >
+                      <Icon size={14} />
+                    </a>
+                  );
+                })}
                 <span className="text-[11px] text-gray-500">روابط التواصل</span>
               </div>
 
@@ -124,7 +116,7 @@ export default function AssocHeader({ assoc }) {
 
             {/* Donate button */}
             <Link
-              to={`/campaigns?assoc=${assoc.id}`}
+              to={`/campaigns?assoc=${assoc?.id || ""}`}
               className="px-5 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-xl transition-all duration-200 shadow-lg shadow-green-900/40"
             >
               تبرع الآن
@@ -136,14 +128,14 @@ export default function AssocHeader({ assoc }) {
         </div>
 
         {/* Tags row */}
-        {assoc.tags && assoc.tags.length > 0 && (
+        {assoc?.tags?.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-end mt-4">
             {assoc.tags.map((tag) => (
               <span
-                key={tag}
+                key={tag.id}
                 className="text-xs text-gray-400 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-1 rounded-full cursor-default transition-colors"
               >
-                {tag}
+                {tag.label}
               </span>
             ))}
           </div>

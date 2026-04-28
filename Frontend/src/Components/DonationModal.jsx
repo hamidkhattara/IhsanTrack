@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * DonationModal.jsx
@@ -43,7 +45,7 @@ import { useState, useEffect, useRef } from "react";
  *   - Section header: "مبلغ التبرع" + step indicator (2/2)
  *   - Quick-select amount buttons: 500, 1000, 2000, 5000 دج
  *   - Custom amount text input
- *   - Payment method selector: CIB / SIM / Baridimob
+ *   - Payment method selector: CIB / Baridimob
  *   - Order summary card: name, wilaya, amount, method
  *   - "تأكيد التبرع ✓" green button → submits → step 4
  *   - "← رجوع" back to step 2
@@ -80,16 +82,10 @@ const MOCK_USER_SESSION = {
 const QUICK_AMOUNTS   = [500, 1000, 2000, 5000];
 const PAYMENT_METHODS = [
   { id: "cib",      label: "CIB",       icon: "💳", desc: "بطاقة CIB البنكية" },
-  { id: "sim",      label: "SIM",       icon: "📱", desc: "الدفع عبر هاتفك" },
   { id: "baridimob",label: "Baridimob", icon: "🏦", desc: "بريد الجزائر موبايل" },
 ];
 const AVATAR_COLORS = [
   "bg-green-700","bg-blue-700","bg-purple-700","bg-orange-700","bg-teal-700","bg-pink-700",
-];
-const FALLBACK_DONORS = [
-  { id:1, name:"أحمد محمد",       amount:1000, timeAgo:"منذ 5 دقائق",  avatar:"أ", anonymous:false },
-  { id:2, name:"متبرع فاعل خير",  amount:2500, timeAgo:"منذ 12 دقيقة", avatar:"م", anonymous:true  },
-  { id:3, name:"سارة بوعلام",     amount:500,  timeAgo:"منذ 28 دقيقة", avatar:"س", anonymous:false },
 ];
 
 const WILAYAS = [
@@ -105,6 +101,7 @@ const iCls = (err) =>
   `w-full bg-gray-800 border ${err ? "border-red-500 focus:border-red-400" : "border-gray-700 hover:border-gray-600 focus:border-green-500"} focus:ring-1 focus:ring-green-500/30 text-white placeholder-gray-500 text-sm rounded-xl px-4 py-2.5 outline-none transition-all duration-200`;
 
 export default function DonationModal({ campaign, onClose }) {
+  const { user, isAuthenticated } = useAuth();
   // ── step state ───────────────────────────────────────────────────────────────
   const [step, setStep] = useState("info"); // "info" | "personal" | "donate" | "success"
 
@@ -127,6 +124,8 @@ export default function DonationModal({ campaign, onClose }) {
   const [submitting, setSubmitting]   = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [confirmRef, setConfirmRef]   = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [imageLoadError, setImageLoadError] = useState(false);
   const overlayRef = useRef(null);
 
   // Reset when new campaign opens
@@ -141,6 +140,9 @@ export default function DonationModal({ campaign, onClose }) {
       setPaymentMethod("cib");
       setSubmitting(false);
       setDescExpanded(false);
+      setImageLoadError(false);
+      setSubmitError("");
+      setConfirmRef("");
     }
   }, [campaign?.id]);
 
@@ -160,19 +162,52 @@ export default function DonationModal({ campaign, onClose }) {
   if (!campaign) return null;
 
   // ── derived ─────────────────────────────────────────────────────────────────
-  const raised        = Number(campaign.raised ?? campaign.current_amount ?? campaign.currentAmount ?? 50000);
-  const goal          = Number(campaign.goal ?? campaign.goal_amount ?? campaign.goalAmount ?? 100000);
-  const donors        = campaign.donors ?? campaign.donor_count ?? 124;
-  const progress      = Math.min(100, Math.round((raised / goal) * 100));
-  const recentDonors  = campaign.recentDonors ?? FALLBACK_DONORS;
+  const raised        = Number(campaign.raised ?? campaign.current_amount ?? campaign.currentAmount ?? 0);
+  const goal          = Number(campaign.goal ?? campaign.goal_amount ?? campaign.goalAmount ?? 0);
+  const donationsList = Array.isArray(campaign.donations) ? campaign.donations : [];
+  const donorsFromList = new Set(donationsList.map((donation) => donation.user_id).filter(Boolean)).size;
+  const donors        = Number(campaign.donors ?? campaign.donor_count ?? donorsFromList ?? 0);
+  const progress      = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+  const recentDonors  = donationsList
+    .slice()
+    .sort((left, right) => new Date(right.date || 0).getTime() - new Date(left.date || 0).getTime())
+    .slice(0, 3)
+    .map((donation, index) => {
+      const donorName = donation.anonymous
+        ? "متبرع مجهول"
+        : donation.donor?.full_name || donation.donor?.email || "متبرع";
+      const dateValue = donation.date ? new Date(donation.date) : null;
+
+      return {
+        id: donation.id || index,
+        name: donorName,
+        amount: Number(donation.amount || 0),
+        timeAgo: dateValue && !Number.isNaN(dateValue.getTime())
+          ? dateValue.toLocaleDateString("ar-DZ")
+          : "",
+        avatar: donorName.charAt(0),
+        anonymous: Boolean(donation.anonymous),
+      };
+    });
   const finalAmount   = customAmount ? Number(customAmount) : amount;
-  const description   = campaign.description ?? "يهدف هذا المشروع إلى حفر آبار ارتوازية وتوصيل شبكات المياه للمناطق التي تعاني من الجفاف في ولايات الجنوب والداخل الجزائري. نسعى لتوفير مياه مستدامة ونظيفة لمئات العائلات.";
-  const coverImage    = campaign.coverImage ?? campaign.image_url ?? campaign.image;
+  const description   = campaign.description ?? "لا يوجد وصف متاح لهذه الحملة حالياً.";
+  const coverImageRaw = campaign.coverImage ?? campaign.image_url ?? campaign.image;
+  const coverImage = typeof coverImageRaw === "string" ? coverImageRaw.trim() : "";
+  const hasValidCoverImage = Boolean(coverImage) && !imageLoadError;
   const associationName = campaign.association?.name ?? campaign.associationName ?? campaign.association?.user?.full_name ?? "جمعية غير محددة";
   const associationWilaya = campaign.association?.wilaya ?? campaign.associationWilaya ?? campaign.wilaya ?? "غير محددة";
   const deadline      = campaign.max_date ?? campaign.end_date ?? campaign.deadline;
   const category      = campaign.category ?? campaign.project_type ?? campaign.type;
   const createdAt     = campaign.created_at ?? campaign.createdAt;
+  const deadlineDate = deadline ? new Date(deadline) : null;
+  const isExpired = deadlineDate instanceof Date && !Number.isNaN(deadlineDate.getTime()) && deadlineDate < new Date();
+  const isCompleted = progress >= 100;
+  const canDonate = Boolean(campaign?.canDonate ?? (!isExpired && !isCompleted));
+  const blockedReason = isCompleted
+    ? "هذه الحملة اكتملت بالفعل ولم يعد التبرع متاحاً لها."
+    : isExpired
+      ? "انتهت مدة هذه الحملة ولم يعد التبرع متاحاً لها."
+      : "";
 
   // ── validate personal form ──────────────────────────────────────────────────
   const validatePersonal = () => {
@@ -193,20 +228,41 @@ export default function DonationModal({ campaign, onClose }) {
 
   // ── submit donation ──────────────────────────────────────────────────────────
   const handleDonate = async () => {
+    if (!canDonate) {
+      setSubmitError(blockedReason || "التبرع غير متاح لهذه الحملة.");
+      return;
+    }
+
     if (!finalAmount || finalAmount <= 0) return;
+
+    if (!isAuthenticated) {
+      setSubmitError("يجب تسجيل الدخول قبل إتمام التبرع.");
+      return;
+    }
+
+    if (user?.role === "association") {
+      setSubmitError("حسابات الجمعيات غير مسموح لها بالتبرع.");
+      return;
+    }
+
     setSubmitting(true);
-    // In production:
-    // const res = await fetch("/api/donations", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ campaignId: campaign.id, amount: finalAmount, paymentMethod, donorInfo: personal, anonymous })
-    // });
-    // const data = await res.json();
-    // setConfirmRef(data.referenceNumber);
-    await new Promise((r) => setTimeout(r, 1500));
-    setConfirmRef("IHD-" + Math.random().toString(36).substr(2,8).toUpperCase());
-    setSubmitting(false);
-    setStep("success");
+    setSubmitError("");
+
+    try {
+      const response = await api.post("/donations", {
+        donation_project_id: Number(campaign.id),
+        amount: Number(finalAmount),
+        payment_method: paymentMethod,
+        anonymous,
+      });
+
+      setConfirmRef(String(response?.data?.id || ""));
+      setStep("success");
+    } catch (err) {
+      setSubmitError(err?.response?.data?.error || "فشل تنفيذ التبرع.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── step indicator component ─────────────────────────────────────────────────
@@ -232,8 +288,13 @@ export default function DonationModal({ campaign, onClose }) {
 
         {/* ══════════════════════ HERO IMAGE ══════════════════════ */}
         <div className="relative h-56 shrink-0 overflow-hidden">
-          {coverImage ? (
-            <img src={coverImage} alt={campaign.title} className="w-full h-full object-cover" />
+          {hasValidCoverImage ? (
+            <img
+              src={coverImage}
+              alt={campaign.title}
+              className="w-full h-full object-cover"
+              onError={() => setImageLoadError(true)}
+            />
           ) : (
             <div className="w-full h-full bg-linear-to-br from-green-900 via-green-800 to-gray-900 flex items-center justify-center">
               <span className="text-8xl opacity-40 select-none">{campaign.imageEmoji ?? "💧"}</span>
@@ -314,28 +375,34 @@ export default function DonationModal({ campaign, onClose }) {
               {/* Recent donors */}
               <div className="px-5 pb-4">
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-gray-500 text-xs">محدث منذ لحظات</span>
+                  <span className="text-gray-500 text-xs">{recentDonors.length > 0 ? "آخر التحديثات من قاعدة البيانات" : "لا توجد تبرعات بعد"}</span>
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-bold text-sm">آخر المتبرعين</h3>
                     <span className="text-blue-400">👥</span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {recentDonors.slice(0, 3).map((donor, idx) => (
-                    <div key={donor.id ?? idx} className="flex items-center justify-between bg-gray-900/60 border border-gray-800/60 rounded-xl px-3 py-2.5">
-                      <span className="text-green-400 font-bold text-sm tabular-nums">{donor.amount.toLocaleString("ar-DZ")} دج</span>
-                      <div className="flex items-center gap-2.5">
-                        <div className="text-right">
-                          <p className="text-white text-sm font-semibold leading-tight">{donor.anonymous ? "متبرع مجهول" : donor.name}</p>
-                          <p className="text-gray-500 text-xs">{donor.timeAgo}</p>
-                        </div>
-                        <div className={`w-8 h-8 rounded-xl ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                          {donor.anonymous ? "؟" : donor.avatar ?? donor.name?.charAt(0)}
+                {recentDonors.length === 0 ? (
+                  <div className="rounded-xl border border-gray-800/60 bg-gray-900/40 px-4 py-3 text-right text-xs text-gray-500">
+                    لا توجد تبرعات مسجلة لهذه الحملة حالياً.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentDonors.map((donor, idx) => (
+                      <div key={donor.id ?? idx} className="flex items-center justify-between bg-gray-900/60 border border-gray-800/60 rounded-xl px-3 py-2.5">
+                        <span className="text-green-400 font-bold text-sm tabular-nums">{donor.amount.toLocaleString("ar-DZ")} دج</span>
+                        <div className="flex items-center gap-2.5">
+                          <div className="text-right">
+                            <p className="text-white text-sm font-semibold leading-tight">{donor.anonymous ? "متبرع مجهول" : donor.name}</p>
+                            <p className="text-gray-500 text-xs">{donor.timeAgo || ""}</p>
+                          </div>
+                          <div className={`w-8 h-8 rounded-xl ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                            {donor.anonymous ? "؟" : donor.avatar ?? donor.name?.charAt(0)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -417,22 +484,49 @@ export default function DonationModal({ campaign, onClose }) {
                 </FormField>
               </div>
 
-              {/* Anonymous toggle + back — same row */}
-              <div className="flex items-center justify-between mt-4">
-                <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
-                  ← رجوع
-                </button>
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <span className="text-gray-300 text-sm">تبرع بشكل مجهول</span>
-                  <div
-                    className={`relative w-10 h-5 rounded-full border transition-all duration-300 cursor-pointer ${anonymous ? "bg-green-600 border-green-500" : "bg-gray-800 border-gray-600"}`}
-                    onClick={() => setAnonymous(!anonymous)}
-                    role="switch"
-                    aria-checked={anonymous}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${anonymous ? "right-0.5" : "left-0.5"}`} />
+              {/* Anonymous toggle + back */}
+              <div className="mt-4 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setAnonymous(!anonymous)}
+                  className={`flex w-full cursor-pointer items-center justify-between rounded-2xl border px-3.5 py-3 text-right transition-all duration-300 ${
+                    anonymous
+                      ? "border-green-500 bg-green-900/20 shadow-[0_0_0_3px_rgba(34,197,94,0.14)]"
+                      : "border-gray-800 bg-gray-900/60 hover:border-gray-700"
+                  }`}
+                  role="switch"
+                  aria-checked={anonymous}
+                  aria-label="تبرع بشكل مجهول"
+                >
+                  <div className="text-right leading-tight">
+                    <p className="text-sm font-semibold text-white">تبرع بشكل مجهول</p>
+                    <p className="mt-1 text-xs text-gray-400">لن يظهر اسمك في قائمة آخر المتبرعين</p>
                   </div>
-                </label>
+
+                  <span
+                    className={`relative inline-flex h-8 w-20 items-center rounded-full border p-1 transition-all duration-300 ${
+                      anonymous
+                        ? "border-green-400 bg-green-600"
+                        : "border-gray-600 bg-gray-800"
+                    }`}
+                  >
+                    <span className={`w-full text-[10px] font-extrabold tracking-wide transition-colors duration-300 ${anonymous ? "pl-2 text-left text-white" : "pr-2 text-right text-gray-300"}`}>
+                      {anonymous ? "" : ""}
+                    </span>
+                    <span
+                      className={`absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-white shadow-lg transition-all duration-300 ${anonymous ? "left-1" : "right-1"}`}
+                    />
+                  </span>
+                </button>
+
+                <div className="flex items-center justify-between">
+                  <button onClick={() => setStep("info")} className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+                    ← رجوع
+                  </button>
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${anonymous ? "bg-green-900/40 text-green-300 border border-green-700/60" : "bg-gray-800 text-gray-300 border border-gray-700"}`}>
+                    {anonymous ? "سيظهر: متبرع مجهول" : "سيظهر: اسمك الحقيقي"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -487,7 +581,7 @@ export default function DonationModal({ campaign, onClose }) {
                   {/* Payment method */}
                   <div className="space-y-1.5">
                     <p className="text-gray-400 text-xs font-medium text-right">طريقة الدفع</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {PAYMENT_METHODS.map((method) => (
                         <button
                           key={method.id}
@@ -570,13 +664,27 @@ export default function DonationModal({ campaign, onClose }) {
         {/* ══════════════════════ BOTTOM CTA ═══════════════════════ */}
         {step !== "success" && (
           <div className="px-5 py-4 bg-gray-950 border-t border-gray-800/60 shrink-0">
+            {submitError ? (
+              <p className="mb-3 rounded-xl border border-red-800/60 bg-red-900/20 px-3 py-2 text-right text-xs text-red-300">
+                {submitError}
+              </p>
+            ) : null}
             {step === "info" && (
-              <button
-                onClick={() => setStep("personal")}
-                className="w-full py-3.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-extrabold text-base rounded-2xl transition-all duration-200 shadow-xl shadow-green-900/50 hover:-translate-y-0.5 flex items-center justify-center gap-2"
-              >
-                <span>♡</span> تصدق الآن
-              </button>
+              <div className="space-y-3">
+                {canDonate ? null : (
+                  <div className="rounded-2xl border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-right text-amber-200 text-xs leading-relaxed">
+                    {blockedReason}
+                  </div>
+                )}
+                <button
+                  onClick={() => canDonate && setStep("personal")}
+                  disabled={!canDonate}
+                  className="w-full py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 active:from-green-700 active:to-emerald-600 text-white font-extrabold text-base rounded-2xl transition-all duration-200 shadow-xl shadow-green-900/50 hover:-translate-y-0.5 flex items-center justify-center gap-2 border border-green-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="text-lg">←</span>
+                  <span>{canDonate ? "تبرع الآن" : "التبرع غير متاح"}</span>
+                </button>
+              </div>
             )}
             {step === "personal" && (
               <button

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import DonationModal from "../DonationModal";
+import { useNavigate } from "react-router-dom";
 
 /**
  * AssocCampaigns.jsx
@@ -20,40 +20,33 @@ import DonationModal from "../DonationModal";
  * Props: campaigns (array of campaign objects from assoc.activeCampaigns)
  */
 export default function AssocCampaigns({ campaigns }) {
-  const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [showAll, setShowAll] = useState(false);
-  
-  if (!campaigns || campaigns.length === 0) return null;
+  const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  // Show only first 3 campaigns by default
-  const displayedCampaigns = showAll ? campaigns : campaigns.slice(0, 3);
-  const hasMore = campaigns.length > 3;
+  const safeCampaigns = campaigns || [];
+  if (safeCampaigns.length === 0) return null;
+
+  const displayedCampaigns = isExpanded ? safeCampaigns : safeCampaigns.slice(0, 3);
+  const hasMore = safeCampaigns.length > 3;
 
   return (
     <div>
       {/* Section header */}
-      <div className="flex items-center justify-between mb-5">
-        {!showAll && hasMore ? (
+      <div className="flex items-center justify-between mb-5" dir="rtl">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-6 bg-green-500 rounded-full" />
+          <h2 className="text-xl font-extrabold text-white">حملات التبرع الحالية</h2>
+        </div>
+        {hasMore ? (
           <button 
-            onClick={() => setShowAll(true)}
+            onClick={() => setIsExpanded((prev) => !prev)}
             className="text-green-400 hover:text-green-300 text-sm font-medium transition-colors flex items-center gap-1"
           >
-            عرض جميع الحملات ←
-          </button>
-        ) : showAll && hasMore ? (
-          <button 
-            onClick={() => setShowAll(false)}
-            className="text-green-400 hover:text-green-300 text-sm font-medium transition-colors flex items-center gap-1"
-          >
-            إخفاء الحملات الإضافية ←
+            {isExpanded ? "عرض أقل" : "عرض الكل"} →
           </button>
         ) : (
           <div />
         )}
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-extrabold text-white">حملات التبرع الحالية</h2>
-          <div className="w-1 h-6 bg-green-500 rounded-full" />
-        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -61,15 +54,10 @@ export default function AssocCampaigns({ campaigns }) {
           <AssocCampaignCard
             key={campaign.id}
             campaign={campaign}
-            onDonate={() => setSelectedCampaign(campaign)}
+            onDonate={() => navigate(`/campaigns?id=${campaign.id}`)}
           />
         ))}
       </div>
-
-      <DonationModal
-        campaign={selectedCampaign}
-        onClose={() => setSelectedCampaign(null)}
-      />
     </div>
   );
 }
@@ -79,36 +67,39 @@ export default function AssocCampaigns({ campaigns }) {
  * Slightly more compact than the homepage CampaignCard
  */
 function AssocCampaignCard({ campaign, onDonate }) {
+  const safeGoal = Number(campaign?.goal || 0);
+  const safeRaised = Number(campaign?.raised || 0);
   const progressPercent = Math.min(
     100,
-    Math.round((campaign.raised / campaign.goal) * 100)
+    safeGoal > 0 ? Math.round((safeRaised / safeGoal) * 100) : 0
   );
-  const isCompleted = campaign.completed || progressPercent >= 100;
+  const deadline = campaign?.max_date ? new Date(campaign.max_date) : null;
+  const isExpired = deadline instanceof Date && !Number.isNaN(deadline.getTime()) && deadline < new Date();
+  const isCompleted = Boolean(campaign?.completed) || progressPercent >= 100;
+  const canDonate = Boolean(campaign?.canDonate ?? (!isCompleted && !isExpired));
+  const statusText = isCompleted ? "اكتملت الحملة" : isExpired ? "انتهت مدة الحملة" : "حملة نشطة";
 
   return (
     <div className="relative bg-gray-900 border border-gray-800 hover:border-green-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-950/30 group">
 
-      {/* Completed overlay */}
-      {isCompleted && (
-        <div className="absolute inset-0 bg-gray-950/70 z-10 flex items-center justify-center rounded-2xl backdrop-blur-sm">
-          <div className="bg-green-600 text-white font-bold text-sm px-5 py-2 rounded-full shadow-lg">
-            ✓ اكتملت الحملة
-          </div>
+      {!canDonate && (
+        <div className="absolute top-3 right-3 z-10 rounded-full px-3 py-1 text-[11px] font-bold text-white bg-gray-800 border border-gray-700 shadow-lg">
+          {statusText}
         </div>
       )}
 
       {/* Card image */}
-      <div className="relative h-40 bg-gradient-to-br from-green-950 to-gray-800 flex items-center justify-center overflow-hidden">
-        {campaign.image ? (
-          <img src={campaign.image} alt={campaign.title} className="w-full h-full object-cover" />
+      <div className="relative h-40 bg-linear-to-br from-green-950 to-gray-800 flex items-center justify-center overflow-hidden">
+        {campaign?.image ? (
+          <img src={campaign.image} alt={campaign?.title || "Campaign"} className="w-full h-full object-cover" />
         ) : (
           <span className="text-5xl opacity-50 group-hover:scale-110 transition-transform duration-500">
-            {campaign.imageEmoji}
+            {campaign?.imageEmoji || "💚"}
           </span>
         )}
 
         {/* Urgent badge */}
-        {campaign.urgent && !isCompleted && (
+        {campaign?.urgent && canDonate && (
           <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             عاجل
@@ -116,19 +107,27 @@ function AssocCampaignCard({ campaign, onDonate }) {
         )}
 
         {/* Category badge */}
-        <div className={`absolute top-3 left-3 ${campaign.categoryColor} text-white text-xs font-medium px-2 py-1 rounded-full`}>
-          {campaign.category}
+        <div className={`absolute top-3 left-3 ${campaign?.categoryColor || "bg-green-600"} text-white text-xs font-medium px-2 py-1 rounded-full`}>
+          {campaign?.category || "تبرعات"}
         </div>
       </div>
 
       {/* Card content */}
       <div className="p-4 text-right">
         <h3 className="text-white font-bold text-sm mb-1 leading-snug line-clamp-1 group-hover:text-green-100 transition-colors">
-          {campaign.title}
+          {campaign?.title || "حملة تبرع"}
         </h3>
         <p className="text-gray-500 text-xs mb-3 leading-relaxed line-clamp-2">
-          {campaign.description}
+          {campaign?.description || "لا يوجد وصف متاح لهذه الحملة."}
         </p>
+
+        {!canDonate ? (
+          <div className="mb-3 rounded-xl border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-right text-[11px] text-amber-200 leading-relaxed">
+            {isCompleted
+              ? "اكتملت الحملة، ويمكنك مراجعة تفاصيلها ونتائجها دون إمكانية التبرع مجدداً."
+              : "انتهت مدة هذه الحملة، لذا تم إيقاف التبرع مع إبقاء الحملة ظاهرة في صفحة الجمعية."}
+          </div>
+        ) : null}
 
         {/* Progress bar */}
         <div className="mb-3">
@@ -137,7 +136,7 @@ function AssocCampaignCard({ campaign, onDonate }) {
               {progressPercent}%
             </span>
             <span>
-              {campaign.raised.toLocaleString("ar-DZ")} / {campaign.goal.toLocaleString("ar-DZ")} دج
+              {safeRaised.toLocaleString("ar-DZ")} / {safeGoal.toLocaleString("ar-DZ")} دج
             </span>
           </div>
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -145,7 +144,7 @@ function AssocCampaignCard({ campaign, onDonate }) {
               className={`h-full rounded-full transition-all duration-700 ${
                 isCompleted
                   ? "bg-green-500"
-                  : "bg-gradient-to-l from-green-500 to-green-700"
+                    : "bg-linear-to-l from-green-500 to-green-700"
               }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -154,16 +153,16 @@ function AssocCampaignCard({ campaign, onDonate }) {
 
         {/* Meta + amounts */}
         <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-          {campaign.daysLeft > 0 ? (
+          {Number(campaign?.daysLeft || 0) > 0 ? (
             <span className="text-yellow-400 font-medium">⏳ {campaign.daysLeft} يوم</span>
           ) : (
             <span className="text-gray-600">—</span>
           )}
-          <span>👥 {campaign.donors} متبرع</span>
+          <span>👥 {Number(campaign?.donors || 0)} متبرع</span>
         </div>
 
         {/* Button */}
-        {!isCompleted ? (
+        {canDonate ? (
           <button
             onClick={onDonate}
             className="w-full py-2 text-xs font-bold bg-green-600 hover:bg-green-500 text-white rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-green-900/40"
@@ -171,12 +170,9 @@ function AssocCampaignCard({ campaign, onDonate }) {
             تبرع الآن
           </button>
         ) : (
-          <Link
-            to={`/campaigns/${campaign.id}`}
-            className="w-full block text-center py-2 text-xs font-medium bg-gray-800 text-gray-400 rounded-xl hover:bg-gray-700 transition-all duration-200"
-          >
-            عرض التفاصيل
-          </Link>
+          <div className="w-full text-center py-2 text-xs font-medium bg-gray-800 text-gray-400 rounded-xl">
+            {isCompleted ? "عرض التفاصيل" : "التبرع متوقف"}
+          </div>
         )}
       </div>
     </div>
